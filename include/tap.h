@@ -66,9 +66,9 @@ class Tap {
   /** Return the currently tracked TAP state. */
   State state() const { return state_; }
 
-  /** Force TAP to Test-Logic-Reset by holding TMS high for 5 clocks. */
+  /** Force TAP to Test-Logic-Reset by holding TMS high for 35 clocks. */
   void reset() {
-    for (uint8_t i = 0; i < 5; ++i) {
+    for (uint8_t i = 0; i < 35; ++i) {
       phy_.next_state(true);
     }
     state_ = State::TestLogicReset;
@@ -169,9 +169,16 @@ class Tap {
     DR<N, T>(0, in);
   }
 
+  /** Emit additional idle clocks while staying in Run-Test/Idle. */
+  void idle_clocks(uint8_t count = 1) {
+    for (uint8_t i = 0; i < count; ++i) {
+      step(false);
+    }
+  }
+
  private:
   /** Default IDCODE instruction value (LSB-first). */
-  static constexpr uint32_t kIdcodeInstr = 0x1u;
+  static constexpr uint32_t kIdcodeInstr = 0xEu;
 
   /** Apply a single TMS transition and update tracked state. */
   void step(bool tms) {

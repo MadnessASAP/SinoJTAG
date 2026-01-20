@@ -51,10 +51,6 @@ using cfg = jtag::Config;
 
 #define vref (*cfg::vref_pin() & _BV(cfg::vref_bit))
 
-static constexpr uint8_t MODE_JTAG = 165, MODE_ICP = 150;
-
-static void reset();
-static void startMode(uint8_t mode);
 
 void jtag::preinit() {
   // Block on Vref
@@ -107,62 +103,4 @@ void jtag::preinit() {
 
   _delay_us(8);
   tms(0);
-  startMode(MODE_JTAG);
-
-  for (uint16_t n = 0; n < 25600; ++n) {
-    tck(1);
-    _delay_us(2);
-    tck(0);
-    _delay_us(2);
-  }
-
-  reset();
-}
-
-static void reset() {
-  // JTAG mode
-  tms(1);
-  for (uint8_t n = 0; n < 35; ++n) {
-    tck(1);
-    _delay_us(2);
-    tck(0);
-    _delay_us(2);
-  }
-  tck(1);
-  tms(0);
-
-  // ICP mode
-  // tck(1);
-  // tms(1);
-  // _delay_us(2);
-  // tms(0);
-  // _delay_us(2);
-}
-
-static void startMode(uint8_t mode) {
-  tck(0);
-  _delay_us(2);
-
-  for (uint8_t m = 0x80; m; m >>= 1) {
-    if (uint8_t(mode) & m) {
-      tdi(1);
-    } else {
-      tdi(0);
-    }
-
-    tck(1);
-    _delay_us(2);
-    tck(0);
-    _delay_us(2);
-  }
-
-  tck(1);
-  _delay_us(2);
-  tck(0);
-  _delay_us(2);
-
-  tck(1);
-  _delay_us(2);
-  tck(0);
-  _delay_us(2);
 }

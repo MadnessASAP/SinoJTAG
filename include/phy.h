@@ -49,7 +49,7 @@ template <typename Pins, typename Timing> struct Phy {
     set_ddr(Pins::tdi_ddr(), Pins::tdi_bit, true);
     set_ddr(Pins::tdo_ddr(), Pins::tdo_bit, false);
 
-    write_port(Pins::tdo_port(), Pins::tdo_bit, false);
+    write_port(Pins::tdo_port(), Pins::tdo_bit, Pins::tdo_pullup);
     write_port(Pins::tck_port(), Pins::tck_bit, false);
     write_port(Pins::tms_port(), Pins::tms_bit, true);
     write_port(Pins::tdi_port(), Pins::tdi_bit, false);

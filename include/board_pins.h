@@ -97,6 +97,8 @@ struct Config {
   static inline volatile uint8_t* tdo_pin() { return &PIND; }
   /** TDO bit position. */
   static constexpr uint8_t tdo_bit = 2;
+  /** Enable pull-up on TDO input (set false if target drives push-pull). */
+  static constexpr bool tdo_pullup = true;
 
   /** Vref PORT register (pull-up control). */
   static inline volatile uint8_t* vref_port() { return &PORTD; }

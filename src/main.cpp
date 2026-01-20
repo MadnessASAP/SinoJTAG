@@ -21,6 +21,7 @@
 #include "board_pins.h"
 #include "phy.h"
 #include "serial.h"
+#include "sinowealth_jtag.h"
 #include "tap.h"
 
 #ifndef JTAG_IR_BITS
@@ -49,14 +50,15 @@ int main() {
   tap.preinit();
   serial_write_str("INIT\n");
   tap.init();
-  serial_write_str("RESET\n");
-  tap.reset();
+  serial_write_str("JTAG INIT\n");
+  jtag::sinowealth_jtag_init(tap, iface);
 
-  uint32_t idcode = 0;
-  tap.idcode<32, uint32_t>(&idcode);
+  uint16_t idcode = 0;
+  tap.idcode<16, uint16_t>(&idcode);
   serial_write_str("IDCODE: 0x");
   serial_write_hex32(idcode);
   serial_write_str("\r\n");
+
 #endif
 
   for (;;) {
