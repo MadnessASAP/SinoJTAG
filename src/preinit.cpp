@@ -20,87 +20,82 @@
  */
 
 #include "board_pins.h"
-#include <avr/sfr_defs.h>
+#include "phy.h"
 #include <util/delay.h>
 
 using cfg = jtag::Config;
+using PrePhy = jtag::Phy<jtag::Config, jtag::Timing>;
 
-#define set(r, b) *r |= _BV(b)
-#define clr(r, b) *r &= ~_BV(b)
+/** Drive TCK output during pre-init waveform. */
+static inline void drive_tck(bool value) {
+  PrePhy::write_port(cfg::tck_port(), cfg::tck_bit, value);
+}
 
-#define tck(v)                                                                 \
-  if constexpr (v) {                                                           \
-    set(cfg::tck_port(), cfg::tck_bit);                                        \
-  } else {                                                                     \
-    clr(cfg::tck_port(), cfg::tck_bit);                                        \
-  }
+/** Drive TMS output during pre-init waveform. */
+static inline void drive_tms(bool value) {
+  PrePhy::write_port(cfg::tms_port(), cfg::tms_bit, value);
+}
 
-#define tms(v)                                                                 \
-  if constexpr (v) {                                                           \
-    set(cfg::tms_port(), cfg::tms_bit);                                        \
-  } else {                                                                     \
-    clr(cfg::tms_port(), cfg::tms_bit);                                        \
-  }
+/** Drive TDI output during pre-init waveform. */
+static inline void drive_tdi(bool value) {
+  PrePhy::write_port(cfg::tdi_port(), cfg::tdi_bit, value);
+}
 
-#define tdi(v)                                                                 \
-  if constexpr (v) {                                                           \
-    set(cfg::tdi_port(), cfg::tdi_bit);                                        \
-  } else {                                                                     \
-    clr(cfg::tdi_port(), cfg::tdi_bit);                                        \
-  }
-
-#define vref (*cfg::vref_pin() & _BV(cfg::vref_bit))
+/** Read the target Vref sense input. */
+static inline bool read_vref() {
+  return PrePhy::read_pin(cfg::vref_pin(), cfg::vref_bit);
+}
 
 
 void jtag::preinit() {
   // Block on Vref
-  clr(cfg::vref_ddr(), cfg::vref_bit);  // input
-  clr(cfg::vref_port(), cfg::vref_bit); // no pull-up
-  while (!vref) {
+  PrePhy::set_ddr(cfg::vref_ddr(), cfg::vref_bit, false);   // input
+  PrePhy::write_port(cfg::vref_port(), cfg::vref_bit, false); // no pull-up
+  while (!read_vref()) {
   }
 
   // Enable outputs
-  *cfg::tck_ddr() |= _BV(cfg::tck_bit);
-  *cfg::tdi_ddr() |= _BV(cfg::tdi_bit);
-  *cfg::tms_ddr() |= _BV(cfg::tms_bit);
-  tck(1);
-  tdi(1);
-  tms(1);
+  PrePhy::set_ddr(cfg::tck_ddr(), cfg::tck_bit, true);
+  PrePhy::set_ddr(cfg::tdi_ddr(), cfg::tdi_bit, true);
+  PrePhy::set_ddr(cfg::tms_ddr(), cfg::tms_bit, true);
+  drive_tck(true);
+  drive_tdi(true);
+  drive_tms(true);
 
   _delay_us(500);
-  tck(0);
+  drive_tck(false);
   _delay_us(1);
-  tck(1);
+  drive_tck(true);
   _delay_us(50);
 
   for (uint8_t n = 0; n < 165; ++n) {
-    tms(0);
+    drive_tms(false);
     _delay_us(2);
-    tms(1);
+    drive_tms(true);
     _delay_us(2);
   }
 
   for (uint8_t n = 0; n < 105; ++n) {
-    tdi(0);
+    drive_tdi(false);
     _delay_us(2);
-    tdi(1);
+    drive_tdi(true);
     _delay_us(2);
   }
 
   for (uint8_t n = 0; n < 90; ++n) {
-    tck(0);
+    drive_tck(false);
     _delay_us(2);
-    tck(1);
+    drive_tck(true);
     _delay_us(2);
   }
 
   for (uint16_t n = 0; n < 25600; ++n) {
-    tms(0);
+    drive_tms(false);
     _delay_us(2);
-    tms(1);
+    drive_tms(true);
     _delay_us(2);
   }
 
   _delay_us(8);
-  tms(0);
+  drive_tms(false);
 }

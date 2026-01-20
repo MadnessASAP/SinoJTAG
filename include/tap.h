@@ -66,9 +66,9 @@ class Tap {
   /** Return the currently tracked TAP state. */
   State state() const { return state_; }
 
-  /** Force TAP to Test-Logic-Reset by holding TMS high for 35 clocks. */
+  /** Force TAP to Test-Logic-Reset by holding TMS high for 5 clocks. */
   void reset() {
-    for (uint8_t i = 0; i < 35; ++i) {
+    for (uint8_t i = 0; i < 5; ++i) {
       phy_.next_state(true);
     }
     state_ = State::TestLogicReset;

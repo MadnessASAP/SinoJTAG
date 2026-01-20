@@ -127,21 +127,6 @@ template <typename Pins, typename Timing> struct Phy {
     return static_cast<T>(capture);
   }
 
-private:
-  /** Pulse TCK low->high->low with timing delays. */
-  static inline void pulse_tck() {
-    set_tck(false);
-    Timing::delay_half();
-    set_tck(true);
-    Timing::delay_half();
-    set_tck(false);
-  }
-
-  /** Drive TCK output. */
-  static inline void set_tck(bool value) {
-    write_port(Pins::tck_port(), Pins::tck_bit, value);
-  }
-
   /** Configure GPIO direction bit. */
   static inline void set_ddr(volatile uint8_t *ddr, uint8_t bit, bool output) {
     const uint8_t mask = static_cast<uint8_t>(1U << bit);
@@ -167,6 +152,21 @@ private:
   static inline bool read_pin(volatile uint8_t *pin, uint8_t bit) {
     const uint8_t mask = static_cast<uint8_t>(1U << bit);
     return ((*pin) & mask) != 0;
+  }
+
+ private:
+  /** Pulse TCK low->high->low with timing delays. */
+  static inline void pulse_tck() {
+    set_tck(false);
+    Timing::delay_half();
+    set_tck(true);
+    Timing::delay_half();
+    set_tck(false);
+  }
+
+  /** Drive TCK output. */
+  static inline void set_tck(bool value) {
+    write_port(Pins::tck_port(), Pins::tck_bit, value);
   }
 };
 

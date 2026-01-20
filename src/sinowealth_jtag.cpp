@@ -22,22 +22,9 @@
 namespace jtag {
 namespace {
 
-/** Reverse the bit order of an 8-bit value. */
-constexpr uint8_t reverse8(uint8_t value) {
-  return static_cast<uint8_t>(((value & 0x80u) ? 0x01u : 0) |
-                              ((value & 0x40u) ? 0x02u : 0) |
-                              ((value & 0x20u) ? 0x04u : 0) |
-                              ((value & 0x10u) ? 0x08u : 0) |
-                              ((value & 0x08u) ? 0x10u : 0) |
-                              ((value & 0x04u) ? 0x20u : 0) |
-                              ((value & 0x02u) ? 0x40u : 0) |
-                              ((value & 0x01u) ? 0x80u : 0));
-}
-
 /** Send the SinoWealth mode byte MSB-first with extra trailing clocks. */
 void send_mode_byte(const IPHYIface& iface, uint8_t mode) {
-  const uint8_t reversed = reverse8(mode);
-  iface.stream_bits(reversed, 8, false, nullptr);
+  iphy_stream_bits(iface, mode, 8, false, nullptr);
   iface.next_state(false);
   iface.next_state(false);
 }
@@ -51,11 +38,9 @@ void sinowealth_jtag_init(Tap<4>& tap, const IPHYIface& iface) {
   static constexpr uint8_t kIrExit = 12u;
 
   send_mode_byte(iface, kModeJtag);
-  for (uint8_t n = 0; n < 8; ++n) {
-    iface.next_state(true);
-  }
-
+  tap.reset();
   tap.goto_state(Tap<4>::State::RunTestIdle);
+  tap.idle_clocks(2);
 
   tap.IR<uint8_t>(kIrControl, nullptr);
   tap.DR<4, uint8_t>(4, nullptr);
