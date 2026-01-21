@@ -56,13 +56,6 @@ class Tap {
   /** Configure GPIO for JTAG using the underlying PHY. */
   void init() { phy_.init(); }
 
-  /** Run optional pre-init waveform with GPIOs still in reset state. */
-  void preinit() {
-    if (phy_.preinit) {
-      phy_.preinit();
-    }
-  }
-
   /** Return the currently tracked TAP state. */
   State state() const { return state_; }
 

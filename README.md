@@ -33,28 +33,31 @@ Key headers:
 - `include/phy.h`: `Phy<Pins, Timing>` for fast GPIO JTAG.
 - `include/iphy.h`: `IPHYIface` function table used by TAP.
 - `include/tap.h`: `Tap<IR_BITS>` state machine and IR/DR helpers.
-- `include/board_pins.h`: pin mapping placeholder and `preinit()` hook.
+- `include/board_pins.h`: pin mapping placeholder.
+- `include/sinowealth.h`: SinoWealth diagnostic/JTAG entry helpers.
 
 ## Program flow
 
 1) `main` constructs a `Tap<IR_BITS>` using an `IPHYIface` created by
    `IPHY<Pins, Timing>::iface()`.
 
-2) `preinit()` (optional) runs a target-specific enable waveform while
-   pins are still in their power-on default state. This is provided by
-   `Pins::preinit()` and is wired through `IPHYIface::preinit`.
+2) Target-specific entry can run before GPIO init (e.g. SinoWealth
+   `sinowealth::diag_enter()`), while pins are still at power-on defaults.
 
 3) `init()` configures JTAG GPIO direction and idle levels:
    - TCK/TMS/TDI outputs, TDO input
    - TCK low, TMS high, TDI low
 
-4) TAP operations:
+4) Target-specific JTAG entry can run after init (e.g. `sinowealth::jtag_enter()`
+   followed by `sinowealth::postinit()`).
+
+5) TAP operations:
    - `reset()` drives TMS high for 5+ clocks to enter Test-Logic-Reset.
    - `goto_state()` emits the shortest TMS sequence to a target state.
    - `IR()` and `DR()` shift bits LSB-first via `IPHYIface::stream_bits`.
    - `bypass()` and `idcode()` are thin helpers built on IR/DR.
 
-5) PHY operations:
+6) PHY operations:
    - `next_state()` drives TMS and pulses TCK.
    - `stream_bits()` shifts bits and optionally captures TDO.
 

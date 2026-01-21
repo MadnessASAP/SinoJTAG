@@ -21,8 +21,16 @@
 #include "tap.h"
 
 namespace jtag {
+namespace sinowealth {
 
-/** Run the SinoWealth JTAG initialization sequence (mode byte + registers). */
-void sinowealth_jtag_init(Tap<4>& tap, const IPHYIface& iface);
+/** Enter the SinoWealth diagnostic/special mode before JTAG GPIO init. */
+void diag_enter();
 
+/** Transition from diagnostic mode into JTAG mode (mode byte + short reset). */
+void jtag_enter(const IPHYIface& iface);
+
+/** Program SinoWealth JTAG control/data registers after JTAG entry. */
+void postinit(Tap<4>& tap);
+
+}  // namespace sinowealth
 }  // namespace jtag

@@ -26,19 +26,12 @@
 #include <stdint.h>
 #include <util/delay.h>
 
-#include "board_pins.h"
 #include "iphy.h"
 
 namespace jtag {
 
 /** Stateless JTAG PHY bit-banging implementation. */
 template <typename Pins, typename Timing> struct Phy {
-  /**
-   * @pre GPIOs are still at power-on defaults; no DDR/PORT writes yet.
-   * @post Target-specific enable waveform has been applied.
-   */
-  static inline void preinit() { Pins::preinit(); }
-
   /**
    * @pre Pins::tck/tms/tdi/tdo pointers and bits are valid.
    * @post TCK/TMS/TDI outputs, TDO input; TCK low, TMS high, TDI low.
@@ -175,7 +168,6 @@ template <typename Pins, typename Timing> struct IPHY {
   /** Return the function table for this PHY specialization. */
   static inline const IPHYIface &iface() {
     static const IPHYIface kIface = {
-        &Phy<Pins, Timing>::preinit,
         &Phy<Pins, Timing>::init,
         &Phy<Pins, Timing>::next_state,
         &Phy<Pins, Timing>::stream_bits,

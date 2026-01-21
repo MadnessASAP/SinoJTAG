@@ -24,8 +24,6 @@ namespace jtag {
 
 /** Function table for non-templated PHY access. */
 struct IPHYIface {
-  /** Optional pre-init hook before any GPIO configuration. */
-  void (*preinit)();
   /** Configure GPIO direction and idle levels for JTAG. */
   void (*init)();
   /** Drive TMS and pulse TCK once. */
@@ -33,13 +31,6 @@ struct IPHYIface {
   /** Shift bits LSB-first and optionally capture TDO. */
   uint32_t (*stream_bits)(uint32_t out, uint8_t bits, bool exit, uint32_t* in);
 };
-
-/** Invoke the optional pre-init hook before GPIO configuration. */
-static inline void iphy_preinit(const IPHYIface& iface) {
-  if (iface.preinit) {
-    iface.preinit();
-  }
-}
 
 /** Configure JTAG GPIO directions and idle levels. */
 static inline void iphy_init(const IPHYIface& iface) {

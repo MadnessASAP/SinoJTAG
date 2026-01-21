@@ -21,10 +21,21 @@
 
 #include "board_pins.h"
 #include "phy.h"
+#include "sinowealth.h"
 #include <util/delay.h>
+
+namespace jtag {
+namespace sinowealth {
 
 using cfg = jtag::Config;
 using PrePhy = jtag::Phy<jtag::Config, jtag::Timing>;
+
+/** Send the SinoWealth mode byte with extra trailing clocks. */
+static inline void send_mode_byte(const IPHYIface& iface, uint8_t mode) {
+  iphy_stream_bits(iface, mode, 8, false, nullptr);
+  iface.next_state(false);
+  iface.next_state(false);
+}
 
 /** Drive TCK output during pre-init waveform. */
 static inline void drive_tck(bool value) {
@@ -47,7 +58,7 @@ static inline bool read_vref() {
 }
 
 
-void jtag::preinit() {
+void diag_enter() {
   // Block on Vref
   PrePhy::set_ddr(cfg::vref_ddr(), cfg::vref_bit, false);   // input
   PrePhy::write_port(cfg::vref_port(), cfg::vref_bit, false); // no pull-up
@@ -99,3 +110,17 @@ void jtag::preinit() {
   _delay_us(8);
   drive_tms(false);
 }
+
+void jtag_enter(const IPHYIface& iface) {
+  static constexpr uint8_t kModeJtag = 0xA5u;
+
+  send_mode_byte(iface, kModeJtag);
+  for (uint8_t n = 0; n < 8; ++n) {
+    iface.next_state(true);
+  }
+  iface.next_state(false);
+  iface.next_state(false);
+}
+
+}  // namespace sinowealth
+}  // namespace jtag

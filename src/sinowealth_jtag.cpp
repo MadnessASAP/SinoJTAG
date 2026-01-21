@@ -15,30 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "sinowealth_jtag.h"
+#include "sinowealth.h"
 
 #include <util/delay.h>
 
 namespace jtag {
-namespace {
+namespace sinowealth {
 
-/** Send the SinoWealth mode byte MSB-first with extra trailing clocks. */
-void send_mode_byte(const IPHYIface& iface, uint8_t mode) {
-  iphy_stream_bits(iface, mode, 8, false, nullptr);
-  iface.next_state(false);
-  iface.next_state(false);
-}
-
-}  // namespace
-
-void sinowealth_jtag_init(Tap<4>& tap, const IPHYIface& iface) {
-  static constexpr uint8_t kModeJtag = 0xA5u;
+void postinit(Tap<4>& tap) {
   static constexpr uint8_t kIrControl = 2u;
   static constexpr uint8_t kIrData = 3u;
   static constexpr uint8_t kIrExit = 12u;
 
-  send_mode_byte(iface, kModeJtag);
-  tap.reset();
   tap.goto_state(Tap<4>::State::RunTestIdle);
   tap.idle_clocks(2);
 
@@ -71,4 +59,5 @@ void sinowealth_jtag_init(Tap<4>& tap, const IPHYIface& iface) {
   tap.IR<uint8_t>(kIrExit, nullptr);
 }
 
+}  // namespace sinowealth
 }  // namespace jtag

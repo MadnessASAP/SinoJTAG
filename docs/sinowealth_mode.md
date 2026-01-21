@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 This note documents the observed "special" SinoWealth entry mode and
 the transition into working JTAG, based on:
-- `src/preinit.cpp` and `src/sinowealth_jtag.cpp` in this repo
+- `src/sinowealth_diag.cpp` and `src/sinowealth_jtag.cpp` in this repo
 - the local working reference at `../sinowealth-8051-dumper/`
 - user bring-up experiments (January 2026)
 - upstream README timing notes from the GitHub repo landing page citeturn0view0
@@ -38,9 +38,10 @@ provide a local checkout or specific files.
 ## Entry into special mode (preinit waveform)
 
 The preinit waveform must be driven **before** configuring the JTAG pins for
-normal operation. In SimpleJTAG this is `jtag::preinit()` called before PHY init.
+normal operation. In SimpleJTAG this is `jtag::sinowealth::diag_enter()` called
+before PHY init.
 
-Observed waveform (from `src/preinit.cpp` and the local reference dumper):
+Observed waveform (from `src/sinowealth_diag.cpp` and the local reference dumper):
 
 1) Wait for VREF high (no pull-up on VREF).
 2) Configure TCK/TMS/TDI as outputs.
@@ -68,6 +69,7 @@ Based on the local working dumper and SimpleJTAG bring-up:
 4) Apply a short reset sequence: in the working dumper this is **8 TMS=1**
    clocks after the mode byte, not a full 35.
 5) Run the JTAG init sequence (IR=2/3/12 and DR writes, see below).
+   (SimpleJTAG: `sinowealth::jtag_enter()` then `sinowealth::postinit()`.)
 
 **Bit order note (inferred):** The reference implementation shifts the mode
 byte MSB-first, but 0xA5 is a bit palindrome so the JTAG mode byte does not
@@ -130,6 +132,7 @@ mode is only available in a short window.
 
 Power-on
 -> Preinit waveform (special mode)
+   (SimpleJTAG: `sinowealth::diag_enter()`)
 -> Mode byte (0xA5) + 2 extra clocks
 -> Short reset (<= 13 TMS=1 pulses)
 -> JTAG init sequence (IR/DR writes)

@@ -23,14 +23,9 @@
 
 namespace jtag {
 
-extern void preinit();
-
 #if 0
 /** Placeholder pins definition; replace with target-specific mapping. */
 struct PinsUnset {
-  /** Optional target-specific preinit waveform hook. */
-  static inline void preinit() {}
-
   /** TCK PORT register. */
   static inline volatile uint8_t* tck_port() { return (volatile uint8_t*)0; }
   /** TCK DDR register. */
@@ -65,9 +60,6 @@ struct PinsUnset {
 
 /** Active pin mapping for the current target wiring. */
 struct Config {
-  /** Optional target-specific preinit waveform hook. */
-  static inline void preinit() { jtag::preinit(); }
-
   /** TCK PORT register. */
   static inline volatile uint8_t* tck_port() { return &PORTD; }
   /** TCK DDR register. */
