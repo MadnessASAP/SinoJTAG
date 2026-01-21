@@ -18,8 +18,6 @@
 #include <avr/io.h>
 #include <stdint.h>
 
-#include "board_pins.h"
-#include "phy.h"
 #include "serial.h"
 #include "sinowealth.h"
 #include "tap.h"
@@ -29,8 +27,6 @@
 #endif
 
 #define JTAG_BRINGUP
-
-using PHY = jtag::IPHY<jtag::Config, jtag::Timing>;
 
 #ifndef UART_BAUD
 #define UART_BAUD 115200UL
@@ -43,15 +39,14 @@ int main() {
 
 #ifdef JTAG_BRINGUP
 
-  const auto& iface = PHY::iface();
-  jtag::Tap<JTAG_IR_BITS> tap(iface);
+  jtag::Tap<JTAG_IR_BITS> tap;
 
   serial_write_str("DIAG\n");
   jtag::sinowealth::diag_enter();
   serial_write_str("INIT\n");
   tap.init();
   serial_write_str("JTAG ENTER\n");
-  jtag::sinowealth::jtag_enter(iface);
+  jtag::sinowealth::jtag_enter();
   serial_write_str("POSTINIT\n");
   jtag::sinowealth::postinit(tap);
 

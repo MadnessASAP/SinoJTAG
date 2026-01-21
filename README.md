@@ -33,7 +33,7 @@ Key headers:
 - `include/phy.h`: `Phy<Pins, Timing>` for fast GPIO JTAG.
 - `include/iphy.h`: `IPHYIface` function table used by TAP.
 - `include/tap.h`: `Tap<IR_BITS>` state machine and IR/DR helpers.
-- `include/board_pins.h`: pin mapping placeholder.
+- `include/config.h`: pin mapping placeholder.
 - `include/sinowealth.h`: SinoWealth diagnostic/JTAG entry helpers.
 
 ## Program flow
@@ -63,6 +63,6 @@ Key headers:
 
 ## Configuration
 
-- Set `Pins` in `include/board_pins.h` to actual AVR PORT/DDR/PIN mappings.
+- Set `Config` in `include/config.h` to actual AVR PORT/DDR/PIN mappings.
 - Adjust timing by providing a custom `Timing` type if a slower TCK is needed.
 - Define `JTAG_IR_BITS` and `JTAG_BRINGUP` in your build for bring-up testing.

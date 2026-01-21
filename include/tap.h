@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "iphy.h"
+#include "phy.h"
 
 namespace jtag {
 
@@ -48,13 +48,12 @@ class Tap {
     UpdateIR = 15,
   };
 
-  /** Construct a TAP controller using a non-templated PHY interface. */
-  explicit Tap(const IPHYIface& phy) : phy_(phy), state_(State::TestLogicReset) {
+  Tap() : state_(State::TestLogicReset) {
     static_assert(IR_BITS > 0 && IR_BITS <= 32, "IR_BITS must be 1..32");
   }
 
   /** Configure GPIO for JTAG using the underlying PHY. */
-  void init() { phy_.init(); }
+  void init() { Phy::init(); }
 
   /** Return the currently tracked TAP state. */
   State state() const { return state_; }
@@ -62,7 +61,7 @@ class Tap {
   /** Force TAP to Test-Logic-Reset by holding TMS high for 5 clocks. */
   void reset() {
     for (uint8_t i = 0; i < 5; ++i) {
-      phy_.next_state(true);
+      Phy::next_state(true);
     }
     state_ = State::TestLogicReset;
   }
@@ -122,7 +121,7 @@ class Tap {
     static_assert(sizeof(T) <= 4, "IR type must be <= 32 bits");
     goto_state(State::ShiftIR);
     const uint32_t capture =
-        phy_.stream_bits(static_cast<uint32_t>(out), IR_BITS, true, nullptr);
+        Phy::stream_bits(static_cast<uint32_t>(out), IR_BITS, true, nullptr);
     if (in) {
       *in = static_cast<T>(capture);
     }
@@ -138,7 +137,7 @@ class Tap {
     static_assert(sizeof(T) <= 4, "DR type must be <= 32 bits");
     goto_state(State::ShiftDR);
     const uint32_t capture =
-        phy_.stream_bits(static_cast<uint32_t>(out), bits, true, nullptr);
+        Phy::stream_bits(static_cast<uint32_t>(out), bits, true, nullptr);
     if (in) {
       *in = static_cast<T>(capture);
     }
@@ -175,7 +174,7 @@ class Tap {
 
   /** Apply a single TMS transition and update tracked state. */
   void step(bool tms) {
-    phy_.next_state(tms);
+    Phy::next_state(tms);
     state_ = next_state(state_, tms);
   }
 
@@ -219,8 +218,6 @@ class Tap {
     }
   }
 
-  /** Underlying PHY interface. */
-  const IPHYIface& phy_;
   /** Current tracked TAP state. */
   State state_;
 };

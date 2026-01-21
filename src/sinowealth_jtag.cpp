@@ -22,6 +22,7 @@
 namespace jtag {
 namespace sinowealth {
 
+/** Program SinoWealth JTAG control/data registers after JTAG entry. */
 void postinit(Tap<4>& tap) {
   static constexpr uint8_t kIrControl = 2u;
   static constexpr uint8_t kIrData = 3u;

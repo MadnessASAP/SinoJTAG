@@ -26,26 +26,26 @@
 #include <stdint.h>
 #include <util/delay.h>
 
-#include "iphy.h"
+#include "config.h"
 
 namespace jtag {
 
 /** Stateless JTAG PHY bit-banging implementation. */
-template <typename Pins, typename Timing> struct Phy {
+struct Phy {
   /**
-   * @pre Pins::tck/tms/tdi/tdo pointers and bits are valid.
+   * @pre config::tck/tms/tdi/tdo pins are valid.
    * @post TCK/TMS/TDI outputs, TDO input; TCK low, TMS high, TDI low.
    */
   static inline void init() {
-    set_ddr(Pins::tck_ddr(), Pins::tck_bit, true);
-    set_ddr(Pins::tms_ddr(), Pins::tms_bit, true);
-    set_ddr(Pins::tdi_ddr(), Pins::tdi_bit, true);
-    set_ddr(Pins::tdo_ddr(), Pins::tdo_bit, false);
+    set_ddr(config::tck::ddr, config::tck::index, true);
+    set_ddr(config::tms::ddr, config::tms::index, true);
+    set_ddr(config::tdi::ddr, config::tdi::index, true);
+    set_ddr(config::tdo::ddr, config::tdo::index, false);
 
-    write_port(Pins::tdo_port(), Pins::tdo_bit, Pins::tdo_pullup);
-    write_port(Pins::tck_port(), Pins::tck_bit, false);
-    write_port(Pins::tms_port(), Pins::tms_bit, true);
-    write_port(Pins::tdi_port(), Pins::tdi_bit, false);
+    write_port(config::tdo::port, config::tdo::index, config::tdo_pullup);
+    write_port(config::tck::port, config::tck::index, false);
+    write_port(config::tms::port, config::tms::index, true);
+    write_port(config::tdi::port, config::tdi::index, false);
   }
 
   /**
@@ -53,7 +53,7 @@ template <typename Pins, typename Timing> struct Phy {
    * @post One TCK pulse applied with given TMS.
    */
   static inline void next_state(bool tms) {
-    write_port(Pins::tms_port(), Pins::tms_bit, tms);
+    write_port(config::tms::port, config::tms::index, tms);
     pulse_tck();
   }
 
@@ -74,19 +74,19 @@ template <typename Pins, typename Timing> struct Phy {
     for (uint8_t i = 0; i < bits; ++i) {
       // setup TMS and TDI
       const bool is_last = (i + 1) == bits;
-      write_port(Pins::tms_port(), Pins::tms_bit, exit && is_last);
-      write_port(Pins::tdi_port(), Pins::tdi_bit, (out & 0x1u) != 0);
+      write_port(config::tms::port, config::tms::index, exit && is_last);
+      write_port(config::tdi::port, config::tdi::index, (out & 0x1u) != 0);
 
       // clock out TMS and TDI
       set_tck(false);
-      Timing::delay_half();
+      config::delay_half();
 
       // Clock in TDO
       set_tck(true);
-      Timing::delay_half();
+      config::delay_half();
 
       // Read TDO
-      if (read_pin(Pins::tdo_pin(), Pins::tdo_bit)) {
+      if (read_pin(config::tdo::pin, config::tdo::index)) {
         if (i < 32) {
           capture |= (1UL << i);
         }
@@ -121,58 +121,44 @@ template <typename Pins, typename Timing> struct Phy {
   }
 
   /** Configure GPIO direction bit. */
-  static inline void set_ddr(volatile uint8_t *ddr, uint8_t bit, bool output) {
+  static inline void set_ddr(volatile uint8_t& ddr, uint8_t bit, bool output) {
     const uint8_t mask = static_cast<uint8_t>(1U << bit);
     if (output) {
-      *ddr |= mask;
+      ddr |= mask;
     } else {
-      *ddr &= static_cast<uint8_t>(~mask);
+      ddr &= static_cast<uint8_t>(~mask);
     }
   }
 
   /** Write GPIO output bit. */
-  static inline void write_port(volatile uint8_t *port, uint8_t bit,
-                                bool value) {
+  static inline void write_port(volatile uint8_t& port, uint8_t bit, bool value) {
     const uint8_t mask = static_cast<uint8_t>(1U << bit);
     if (value) {
-      *port |= mask;
+      port |= mask;
     } else {
-      *port &= static_cast<uint8_t>(~mask);
+      port &= static_cast<uint8_t>(~mask);
     }
   }
 
   /** Read GPIO input bit. */
-  static inline bool read_pin(volatile uint8_t *pin, uint8_t bit) {
+  static inline bool read_pin(volatile uint8_t& pin, uint8_t bit) {
     const uint8_t mask = static_cast<uint8_t>(1U << bit);
-    return ((*pin) & mask) != 0;
+    return (pin & mask) != 0;
   }
 
  private:
   /** Pulse TCK low->high->low with timing delays. */
   static inline void pulse_tck() {
     set_tck(false);
-    Timing::delay_half();
+    config::delay_half();
     set_tck(true);
-    Timing::delay_half();
+    config::delay_half();
     set_tck(false);
   }
 
   /** Drive TCK output. */
   static inline void set_tck(bool value) {
-    write_port(Pins::tck_port(), Pins::tck_bit, value);
-  }
-};
-
-/** Adapter that exposes a templated PHY through a function table. */
-template <typename Pins, typename Timing> struct IPHY {
-  /** Return the function table for this PHY specialization. */
-  static inline const IPHYIface &iface() {
-    static const IPHYIface kIface = {
-        &Phy<Pins, Timing>::init,
-        &Phy<Pins, Timing>::next_state,
-        &Phy<Pins, Timing>::stream_bits,
-    };
-    return kIface;
+    write_port(config::tck::port, config::tck::index, value);
   }
 };
 

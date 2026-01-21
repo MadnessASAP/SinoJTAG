@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include "iphy.h"
 #include "tap.h"
 
 namespace jtag {
@@ -27,7 +26,7 @@ namespace sinowealth {
 void diag_enter();
 
 /** Transition from diagnostic mode into JTAG mode (mode byte + short reset). */
-void jtag_enter(const IPHYIface& iface);
+void jtag_enter();
 
 /** Program SinoWealth JTAG control/data registers after JTAG entry. */
 void postinit(Tap<4>& tap);

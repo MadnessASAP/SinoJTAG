@@ -19,7 +19,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "board_pins.h"
+#include "config.h"
 #include "phy.h"
 #include "sinowealth.h"
 #include <util/delay.h>
@@ -27,48 +27,46 @@
 namespace jtag {
 namespace sinowealth {
 
-using cfg = jtag::Config;
-using PrePhy = jtag::Phy<jtag::Config, jtag::Timing>;
-
 /** Send the SinoWealth mode byte with extra trailing clocks. */
-static inline void send_mode_byte(const IPHYIface& iface, uint8_t mode) {
-  iphy_stream_bits(iface, mode, 8, false, nullptr);
-  iface.next_state(false);
-  iface.next_state(false);
+static inline void send_mode_byte(uint8_t mode) {
+  Phy::stream_bits(mode, 8, false, nullptr);
+  Phy::next_state(false);
+  Phy::next_state(false);
 }
 
 /** Drive TCK output during pre-init waveform. */
 static inline void drive_tck(bool value) {
-  PrePhy::write_port(cfg::tck_port(), cfg::tck_bit, value);
+  Phy::write_port(config::tck::port, config::tck::index, value);
 }
 
 /** Drive TMS output during pre-init waveform. */
 static inline void drive_tms(bool value) {
-  PrePhy::write_port(cfg::tms_port(), cfg::tms_bit, value);
+  Phy::write_port(config::tms::port, config::tms::index, value);
 }
 
 /** Drive TDI output during pre-init waveform. */
 static inline void drive_tdi(bool value) {
-  PrePhy::write_port(cfg::tdi_port(), cfg::tdi_bit, value);
+  Phy::write_port(config::tdi::port, config::tdi::index, value);
 }
 
 /** Read the target Vref sense input. */
 static inline bool read_vref() {
-  return PrePhy::read_pin(cfg::vref_pin(), cfg::vref_bit);
+  return Phy::read_pin(config::vref::pin, config::vref::index);
 }
 
 
+/** Enter the SinoWealth diagnostic/special mode before JTAG GPIO init. */
 void diag_enter() {
   // Block on Vref
-  PrePhy::set_ddr(cfg::vref_ddr(), cfg::vref_bit, false);   // input
-  PrePhy::write_port(cfg::vref_port(), cfg::vref_bit, false); // no pull-up
+  Phy::set_ddr(config::vref::ddr, config::vref::index, false);    // input
+  Phy::write_port(config::vref::port, config::vref::index, false); // no pull-up
   while (!read_vref()) {
   }
 
   // Enable outputs
-  PrePhy::set_ddr(cfg::tck_ddr(), cfg::tck_bit, true);
-  PrePhy::set_ddr(cfg::tdi_ddr(), cfg::tdi_bit, true);
-  PrePhy::set_ddr(cfg::tms_ddr(), cfg::tms_bit, true);
+  Phy::set_ddr(config::tck::ddr, config::tck::index, true);
+  Phy::set_ddr(config::tdi::ddr, config::tdi::index, true);
+  Phy::set_ddr(config::tms::ddr, config::tms::index, true);
   drive_tck(true);
   drive_tdi(true);
   drive_tms(true);
@@ -111,15 +109,16 @@ void diag_enter() {
   drive_tms(false);
 }
 
-void jtag_enter(const IPHYIface& iface) {
+/** Transition from diagnostic mode into JTAG mode (mode byte + short reset). */
+void jtag_enter() {
   static constexpr uint8_t kModeJtag = 0xA5u;
 
-  send_mode_byte(iface, kModeJtag);
+  send_mode_byte(kModeJtag);
   for (uint8_t n = 0; n < 8; ++n) {
-    iface.next_state(true);
+    Phy::next_state(true);
   }
-  iface.next_state(false);
-  iface.next_state(false);
+  Phy::next_state(false);
+  Phy::next_state(false);
 }
 
 }  // namespace sinowealth
