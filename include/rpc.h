@@ -57,4 +57,11 @@ uint16_t idcode();
 void idle_clocks(uint8_t count);
 
 }  // namespace tap
+
+namespace flash {
+
+/** Read a byte from flash at given address (MSB-first protocol). */
+uint8_t read(uint16_t address);
+
+}  // namespace flash
 }  // namespace rpc

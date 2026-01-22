@@ -52,7 +52,9 @@ void loop() {
       "dr: Shift data register. @out: Value. @bits: Width. @return: Captured.",
       tap::bypass, "bypass: Select BYPASS register.",
       tap::idcode, "idcode: Read IDCODE. @return: 16-bit ID.",
-      tap::idle_clocks, "idle_clocks: Emit idle clocks. @count: Number.");
+      tap::idle_clocks, "idle_clocks: Emit idle clocks. @count: Number.",
+      flash::read,
+      "flash_read: Read byte from flash. @address: 16-bit addr. @return: Byte.");
 }
 
 namespace tap {
@@ -116,4 +118,42 @@ uint16_t idcode() {
 void idle_clocks(uint8_t count) { tap_instance.idle_clocks(count); }
 
 }  // namespace tap
+
+namespace flash {
+
+namespace {
+inline uint16_t reverse16(uint16_t v) {
+  v = ((v >> 8) & 0x00FF) | ((v << 8) & 0xFF00);
+  v = ((v >> 4) & 0x0F0F) | ((v << 4) & 0xF0F0);
+  v = ((v >> 2) & 0x3333) | ((v << 2) & 0xCCCC);
+  v = ((v >> 1) & 0x5555) | ((v << 1) & 0xAAAA);
+  return v;
+}
+
+inline uint8_t reverse8(uint8_t v) {
+  v = ((v >> 4) & 0x0F) | ((v << 4) & 0xF0);
+  v = ((v >> 2) & 0x33) | ((v << 2) & 0xCC);
+  v = ((v >> 1) & 0x55) | ((v << 1) & 0xAA);
+  return v;
+}
+}  // namespace
+
+uint8_t read(uint16_t address) {
+  // Select IR=0 (FLASH_ACCESS)
+  tap_instance.IR<uint8_t>(0);
+
+  // 30-bit DR: address (16, MSB-first) + control (6) + data (8)
+  // Control bits 0,0,0,1,0,0 MSB-first = 0x08 in bits 16-21
+  uint32_t dr_out = reverse16(address) | (0x08UL << 16);
+  uint32_t dr_in = 0;
+  tap_instance.DR<30, uint32_t>(dr_out, &dr_in);
+
+  // Data is in bits 22-29, captured MSB-first
+  uint8_t data = reverse8((dr_in >> 22) & 0xFF);
+
+  tap_instance.idle_clocks(2);
+  return data;
+}
+
+}  // namespace flash
 }  // namespace rpc
