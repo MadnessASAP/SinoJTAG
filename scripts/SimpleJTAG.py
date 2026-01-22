@@ -6,6 +6,7 @@ Usage: python SimpleJTAG.py [serial_port]
 """
 
 import sys
+
 from simple_rpc import Interface
 
 
@@ -21,6 +22,11 @@ def main():
     print("\nScanning IR (4-bit) with 32-bit DR reads:\n")
     print("IR   | DR (32-bit)")
     print("-----|------------")
+
+    jtag.ir(0)
+    for i in range(16):
+        dr_val = jtag.dr(0, 32)
+        print(f"0x0  | 0x{dr_val:08X}")
 
     for ir_val in range(16):
         jtag.ir(ir_val)

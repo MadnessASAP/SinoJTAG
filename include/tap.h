@@ -126,8 +126,7 @@ class Tap {
       *in = static_cast<T>(capture);
     }
     state_ = State::Exit1IR;
-    step(true);
-    step(false);
+    step(true); // State::UpdateIR
   }
 
   /** Shift a data register value of a fixed bit width. */
@@ -142,8 +141,7 @@ class Tap {
       *in = static_cast<T>(capture);
     }
     state_ = State::Exit1DR;
-    step(true);
-    step(false);
+    step(true); // State::UpdateDR
   }
 
   /** Select BYPASS by shifting all-ones into IR. */

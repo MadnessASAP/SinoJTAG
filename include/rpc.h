@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "vector.tcc"
 #include <stdint.h>
 
 namespace rpc {
@@ -59,9 +60,8 @@ void idle_clocks(uint8_t count);
 }  // namespace tap
 
 namespace flash {
-
-/** Read a byte from flash at given address (MSB-first protocol). */
-uint8_t read(uint16_t address);
+/** Read 128 bytes from flash at given address */
+Vector<uint8_t> read(uint16_t address);
 
 }  // namespace flash
 }  // namespace rpc
