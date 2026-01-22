@@ -57,11 +57,19 @@ static inline bool read_vref() {
 
 /** Enter the SinoWealth diagnostic/special mode before JTAG GPIO init. */
 void diag_enter() {
-  // Block on Vref
+  // Block on Vref, flash LED on PB5 to signal waiting
   Phy::set_ddr(config::vref::ddr, config::vref::index, false);    // input
   Phy::write_port(config::vref::port, config::vref::index, false); // no pull-up
+
+  DDRB |= _BV(5);   // PB5 output (LED)
+  uint8_t count = 0;
   while (!read_vref()) {
+    if (++count == 0) {
+      PORTB ^= _BV(5);  // Toggle LED every 256 iterations
+    }
+    _delay_us(200);
   }
+  PORTB &= ~_BV(5);  // LED off
 
   // Enable outputs
   Phy::set_ddr(config::tck::ddr, config::tck::index, true);
