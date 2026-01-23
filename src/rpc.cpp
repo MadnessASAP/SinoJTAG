@@ -15,6 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <stdlib.h>
 #include <stddef.h>
 #include "rpc.h"
 
@@ -26,6 +27,7 @@
 #include "sinowealth.h"
 #include "tap.h"
 #include "vector.tcc"
+#include "icp.h"
 
 #ifndef UART_BAUD
 #define UART_BAUD 115200UL
@@ -42,34 +44,47 @@ void setup() { Serial.begin(UART_BAUD); }
 void loop() {
   interface(
       Serial,
+      phy::init,
+        F("phy_init: Initialize SinoWealth diagnostics mode."),
       tap::init,
-        F("init: Initialize JTAG interface."),
+        F("tap_init: Initialize JTAG interface."),
       tap::state,
-        F("state: Get current TAP state. @return: State (0-15)."),
+        F("tap_state: Get current TAP state. @return: State (0-15)."),
       tap::reset,
-        F("reset: Force TAP to Test-Logic-Reset."),
+        F("tap_reset: Force TAP to Test-Logic-Reset."),
       tap::goto_state,
-        F("goto_state: Move to target state. @target: State (0-15)."),
+        F("tap_goto_state: Move to target state. @target: State (0-15)."),
       tap::ir,
-        F("ir: Shift instruction register. @out: Value. @return: Captured."),
+        F("tap_ir: Shift instruction register. @out: Value. @return: Captured."),
       tap::dr,
-        F("dr: Shift data register. @out: Value. @bits: Width. @return: Captured."),
+        F("tap_dr: Shift data register. @out: Value. @bits: Width. @return: Captured."),
       tap::bypass,
-        F("bypass: Select BYPASS register."),
+        F("tap_bypass: Select BYPASS register."),
       tap::idcode,
-        F("idcode: Read IDCODE. @return: 16-bit ID."),
+        F("tap_idcode: Read IDCODE. @return: 16-bit ID."),
       tap::idle_clocks,
-        F("idle_clocks: Emit idle clocks. @count: Number."),
+        F("tap_idle_clocks: Emit idle clocks. @count: Number."),
       flash::read,
-        F("flash_read: Read 128 bytes from flash. @address: 16-bit addr. @return: [Byte].")
+        F("flash_read: Read 128 bytes from flash. @address: 16-bit addr. @return: [Byte]."),
+      icp::init,
+        F("icp_init: Initialize ICP interface."),
+      icp::verify,
+        F("icp_verify: Perform readback test on ICP. @return: Okay"),
+      icp::read,
+        F("icp_read: Read flash memory via ICP. @address: 16-bit address. @size: 8-bit read length. @return: [Byte]")
   );
+}
+
+namespace phy {
+  void init() {
+    jtag::sinowealth::diag_enter();
+    tap_instance.init();
+  }
 }
 
 namespace tap {
 
 void init() {
-  jtag::sinowealth::diag_enter();
-  tap_instance.init();
   jtag::sinowealth::jtag_enter();
   jtag::sinowealth::postinit(tap_instance);
 }
@@ -137,4 +152,22 @@ Vector<uint8_t> read(uint16_t address) {
   return buffer;
 }
 }  // namespace flash
+
+namespace icp {
+
+void init() {
+  jtag::sinowealth::icp_enter();
+  jtag::icp::init();
+}
+
+bool verify() {
+  return jtag::icp::verify();
+}
+
+Vector<uint8_t> read(uint16_t address, uint8_t size) {
+  uint8_t* buffer = static_cast<uint8_t*>(malloc(size));
+  jtag::icp::read_flash(address, buffer, size);
+  return Vector(size, buffer, true);
+}
+}  // namespace icp
 }  // namespace rpc

@@ -29,6 +29,13 @@ void setup();
 /** Process incoming RPC requests. */
 void loop();
 
+namespace phy {
+
+/** Initialize physical interface (includes SinoWealth entry sequence). */
+void init();
+
+} // namespace phy
+
 namespace tap {
 
 /** Initialize JTAG interface (includes SinoWealth entry sequence). */
@@ -65,4 +72,17 @@ namespace flash {
 Vector<uint8_t> read(uint16_t address);
 
 }  // namespace flash
+
+namespace icp {
+
+/** Enter SinoWealth ICP mode */
+void init();
+
+/** Verify ICP mode entry */
+bool verify();
+
+/** read flash */
+Vector<uint8_t> read(uint16_t address, uint8_t size);
+}
+
 }  // namespace rpc

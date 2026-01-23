@@ -27,24 +27,17 @@
 namespace jtag {
 namespace sinowealth {
 
-/** Send the SinoWealth mode byte with extra trailing clocks. */
-static inline void send_mode_byte(uint8_t mode) {
-  Phy::stream_bits<8, false>(mode);
-  Phy::next_state(false);
-  Phy::next_state(false);
-}
-
-/** Drive TCK output during pre-init waveform. */
+/** Drive TCK output. */
 static inline void drive_tck(bool value) {
   Phy::write_port(config::tck::port, config::tck::index, value);
 }
 
-/** Drive TMS output during pre-init waveform. */
+/** Drive TMS output. */
 static inline void drive_tms(bool value) {
   Phy::write_port(config::tms::port, config::tms::index, value);
 }
 
-/** Drive TDI output during pre-init waveform. */
+/** Drive TDI output. */
 static inline void drive_tdi(bool value) {
   Phy::write_port(config::tdi::port, config::tdi::index, value);
 }
@@ -52,6 +45,13 @@ static inline void drive_tdi(bool value) {
 /** Read the target Vref sense input. */
 static inline bool read_vref() {
   return Phy::read_pin(config::vref::pin, config::vref::index);
+}
+
+/** Send the SinoWealth mode byte LSB-first with trailing clocks. */
+static inline void send_mode_byte(uint8_t mode) {
+  Phy::stream_bits<8, false>(mode);
+  Phy::next_state(false);
+  Phy::next_state(false);
 }
 
 
@@ -120,12 +120,13 @@ void diag_enter() {
 /** Transition from diagnostic mode into JTAG mode (mode byte + short reset). */
 void jtag_enter() {
   send_mode_byte(Mode.JTAG);
-  for (uint8_t n = 0; n < 8; ++n) {
-    Phy::next_state(true);
-  }
-  Phy::next_state(false);
-  Phy::next_state(false);
 }
+
+/** Transition from diagnostic mode into ICP mode (mode byte + init clocks). */
+void icp_enter() {
+  send_mode_byte(Mode.ICP);
+}
+
 
 }  // namespace sinowealth
 }  // namespace jtag

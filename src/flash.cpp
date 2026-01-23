@@ -17,24 +17,7 @@
 
 #include "flash.h"
 
-namespace {
-inline uint16_t reverse16(uint16_t v) {
-  v = ((v >> 8) & 0x00FF) | ((v << 8) & 0xFF00);
-  v = ((v >> 4) & 0x0F0F) | ((v << 4) & 0xF0F0);
-  v = ((v >> 2) & 0x3333) | ((v << 2) & 0xCCCC);
-  v = ((v >> 1) & 0x5555) | ((v << 1) & 0xAAAA);
-  return v;
-}
-
-inline uint8_t reverse8(uint8_t v) {
-  v = ((v >> 4) & 0x0F) | ((v << 4) & 0xF0);
-  v = ((v >> 2) & 0x33) | ((v << 2) & 0xCC);
-  v = ((v >> 1) & 0x55) | ((v << 1) & 0xAA);
-  return v;
-}
-
-}  // namespace detail
-
+#include "sinowealth.h"
 
 namespace jtag {
 namespace flash {
@@ -74,7 +57,7 @@ void Iterator::read_next() {
   // | read out 001000  address (MSB =>)
 
   // address sent MSB first
-  uint32_t dr_out = reverse16(addr_);
+  uint32_t dr_out = sinowealth::reverse16(addr_);
   // insert mystery bits
   dr_out |= 0b001000UL << 16;
 
@@ -87,7 +70,7 @@ void Iterator::read_next() {
   // extract returned data
   dr_in >>= 22;
   dr_in &= 0xFF;
-  data_ = reverse8(dr_in);
+  data_ = sinowealth::reverse8(dr_in);
   ++addr_;
 }
 
