@@ -43,6 +43,6 @@ DEFINE_PIN(vref, D, 6);
 static constexpr bool tdo_pullup = true;
 
 /** Delay half-period for TCK (~250 kHz at 16 MHz F_CPU). */
-static inline void delay_half() { _delay_us(2); }
+static inline void delay_half() { _delay_us(1); }
 
 }  // namespace config
