@@ -16,9 +16,10 @@
  */
 
 #pragma once
+#include <stdint.h>
+#include <stddef.h>
 
 #include "vector.tcc"
-#include <stdint.h>
 
 namespace rpc {
 
@@ -52,7 +53,7 @@ uint32_t dr(uint32_t out, uint8_t bits);
 void bypass();
 
 /** Read IDCODE (16-bit for SinoWealth). */
-uint16_t idcode();
+uint32_t idcode();
 
 /** Emit idle clocks in Run-Test/Idle. */
 void idle_clocks(uint8_t count);

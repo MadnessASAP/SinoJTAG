@@ -29,7 +29,7 @@ namespace sinowealth {
 
 /** Send the SinoWealth mode byte with extra trailing clocks. */
 static inline void send_mode_byte(uint8_t mode) {
-  Phy::stream_bits(mode, 8, false, nullptr);
+  Phy::stream_bits<8, false>(mode);
   Phy::next_state(false);
   Phy::next_state(false);
 }
@@ -119,9 +119,7 @@ void diag_enter() {
 
 /** Transition from diagnostic mode into JTAG mode (mode byte + short reset). */
 void jtag_enter() {
-  static constexpr uint8_t kModeJtag = 0xA5u;
-
-  send_mode_byte(kModeJtag);
+  send_mode_byte(Mode.JTAG);
   for (uint8_t n = 0; n < 8; ++n) {
     Phy::next_state(true);
   }

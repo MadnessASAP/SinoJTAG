@@ -27,16 +27,12 @@
 #include "tap.h"
 #include "vector.tcc"
 
-#ifndef JTAG_IR_BITS
-#define JTAG_IR_BITS 4
-#endif
-
 #ifndef UART_BAUD
 #define UART_BAUD 115200UL
 #endif
 
 namespace {
-jtag::Tap<JTAG_IR_BITS> tap_instance;
+jtag::Tap tap_instance;
 }
 
 namespace rpc {
@@ -86,12 +82,12 @@ void reset() { tap_instance.reset(); }
 
 void goto_state(uint8_t target) {
   tap_instance.goto_state(
-      static_cast<jtag::Tap<JTAG_IR_BITS>::State>(target));
+      static_cast<jtag::State>(target));
 }
 
 uint8_t ir(uint8_t out) {
   uint8_t in = 0;
-  tap_instance.IR<uint8_t>(out, &in);
+  tap_instance.IR(out, &in);
   return in;
 }
 
@@ -121,10 +117,8 @@ uint32_t dr(uint32_t out, uint8_t bits) {
 
 void bypass() { tap_instance.bypass(); }
 
-uint16_t idcode() {
-  uint16_t id = 0;
-  tap_instance.idcode<16, uint16_t>(&id);
-  return id;
+uint32_t idcode() {
+  return tap_instance.idcode();
 }
 
 void idle_clocks(uint8_t count) { tap_instance.idle_clocks(count); }
@@ -133,15 +127,14 @@ void idle_clocks(uint8_t count) { tap_instance.idle_clocks(count); }
 
 namespace flash {
 Vector<uint8_t> read(uint16_t address) {
-    auto buffer = Vector<uint8_t>(128);
-    auto iter = jtag::flash::start(tap_instance, address);
-    for (auto i = 0; i < 128; i++)
-    {
-        buffer[i] = *iter++;
-    }
-   jtag::flash::end(iter);
-
-   return buffer;
+  auto buffer = Vector<uint8_t>(128);
+  auto iter = jtag::flash::Iterator(tap_instance, address);
+  for (auto i = 0; i < 128; i++)
+  {
+      buffer[i] = *iter;
+      ++iter;
+  }
+  return buffer;
 }
 }  // namespace flash
 }  // namespace rpc

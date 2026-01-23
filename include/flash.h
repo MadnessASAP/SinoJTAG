@@ -24,37 +24,30 @@
 namespace jtag {
 namespace flash {
 
-namespace detail {
-inline uint16_t reverse16(uint16_t v) {
-  v = ((v >> 8) & 0x00FF) | ((v << 8) & 0xFF00);
-  v = ((v >> 4) & 0x0F0F) | ((v << 4) & 0xF0F0);
-  v = ((v >> 2) & 0x3333) | ((v << 2) & 0xCCCC);
-  v = ((v >> 1) & 0x5555) | ((v << 1) & 0xAAAA);
-  return v;
-}
-
-inline uint8_t reverse8(uint8_t v) {
-  v = ((v >> 4) & 0x0F) | ((v << 4) & 0xF0);
-  v = ((v >> 2) & 0x33) | ((v << 2) & 0xCC);
-  v = ((v >> 1) & 0x55) | ((v << 1) & 0xAA);
-  return v;
-}
-
-}  // namespace detail
-
-template <int IR_BITS>
 class Iterator;
 
-template <int IR_BITS>
-Iterator<IR_BITS> start(Tap<IR_BITS>& tap, uint16_t addr);
+Iterator start(Tap& tap, uint16_t addr);
 
-template <int IR_BITS>
-void end(Iterator<IR_BITS>& it);
+void end(Iterator& it);
 
 /** Flash memory read iterator for SinoWealth devices. */
-template <int IR_BITS>
 class Iterator {
  public:
+  /**
+    * Begin flash reading at the specified address.
+    *
+    * Selects the FLASH_ACCESS register, performs the initial garbage read,
+    * and returns an iterator positioned at the first valid byte.
+    */
+  Iterator(Tap& tap, uint16_t addr);
+
+  /**
+   * End flash reading and reset the TAP.
+   *
+   * Invalidates the iterator and emits idle clocks to complete the operation.
+   */
+  ~Iterator();
+
   /** Return the byte at the current address. */
   uint8_t operator*() const { return data_; }
 
@@ -72,75 +65,18 @@ class Iterator {
   }
 
   /** Return the address of the current byte. */
-  uint16_t address() const { return addr_ - 1; }
+  uint16_t address() const { return addr_ - 2; }
 
   /** Check if iterator is valid. */
   explicit operator bool() const { return tap_ != nullptr; }
 
  private:
-  friend Iterator start<IR_BITS>(Tap<IR_BITS>& tap, uint16_t addr);
-  friend void end<IR_BITS>(Iterator& it);
+  void read_next();
 
-  void read_next() {
-    // address word is 30 bits long
-    // | 22222222 221111 11111100 00000000
-    // | 98765432 109876 54321098 76543210
-    // | read out 001000  address (MSB =>)
-
-    // address sent MSB first
-    uint32_t dr_out = detail::reverse16(addr_);
-    // insert mystery bits
-    dr_out |= 0b001000UL << 16;
-
-    uint32_t dr_in = 0;
-    tap_->template DR<30, uint32_t>(dr_out, &dr_in);
-    // 2 idle clocks, definitley fails without this
-    tap_->idle_clocks(2);
-    data_ = detail::reverse8((dr_in >> 22) & 0xFF);
-    ++addr_;
-  }
-
-  Tap<IR_BITS>* tap_ = nullptr;
+  Tap* tap_ = nullptr;
   uint16_t addr_ = 0;
   uint8_t data_ = 0;
 };
-
-/**
- * Begin flash reading at the specified address.
- *
- * Selects the FLASH_ACCESS register, performs the initial garbage read,
- * and returns an iterator positioned at the first valid byte.
- */
-template <int IR_BITS>
-Iterator<IR_BITS> start(Tap<IR_BITS>& tap, uint16_t addr) {
-  Iterator<IR_BITS> it;
-  it.tap_ = &tap;
-
-  // Select FLASH_ACCESS register (IR=0)
-  tap.template IR<uint8_t>(0);
-
-  it.addr_ = addr;
-  // First read is bogus read_next twice causing
-  //    it.addr_    = addr + 2
-  //    DR          = addr + 1
-  //    it.data_    = *addr
-  it.read_next();
-  it.read_next();
-  return it;
-}
-
-/**
- * End flash reading and reset the TAP.
- *
- * Invalidates the iterator and emits idle clocks to complete the operation.
- */
-template <int IR_BITS>
-void end(Iterator<IR_BITS>& it) {
-  if (it.tap_) {
-    // it.tap_->IR(12);
-    it.tap_ = nullptr;
-  }
-}
 
 }  // namespace flash
 }  // namespace jtag

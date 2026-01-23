@@ -17,10 +17,22 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include "tap.h"
 
 namespace jtag {
 namespace sinowealth {
+
+inline constexpr struct {
+  uint8_t JTAG = 0xA5;
+} Mode{};
+
+inline constexpr struct : jtag::Tap::InstructionSet {
+  uint8_t Control = 0x2;
+  uint8_t Data = 0x3;
+  uint8_t Exit = 0xC;
+} Instruction{};
 
 /** Enter the SinoWealth diagnostic/special mode before JTAG GPIO init. */
 void diag_enter();
@@ -29,7 +41,7 @@ void diag_enter();
 void jtag_enter();
 
 /** Program SinoWealth JTAG control/data registers after JTAG entry. */
-void postinit(Tap<4>& tap);
+void postinit(Tap& tap);
 
 }  // namespace sinowealth
 }  // namespace jtag

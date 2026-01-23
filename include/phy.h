@@ -62,7 +62,7 @@ struct Phy {
    * @post Shifted bits LSB-first; optional capture stored in @p in.
    */
   static inline uint32_t stream_bits(uint32_t out, uint8_t bits, bool exit,
-                                     uint32_t *in) {
+                                     uint32_t *in = nullptr) {
     if (bits == 0) {
       if (in) {
         *in = 0;
@@ -104,7 +104,7 @@ struct Phy {
   }
 
   /** Convenience wrapper for compile-time-sized shifts. */
-  template <int N, typename T, bool EXIT>
+  template <int N, bool EXIT, typename T>
   static inline T stream_bits(T out, T *in = nullptr) {
     static_assert(N > 0 && N <= 32, "stream_bits N must be 1..32");
     static_assert(sizeof(T) <= 4, "stream_bits T must be <= 32 bits");

@@ -16,6 +16,7 @@
  */
 
 #include "sinowealth.h"
+#include "tap_state.h"
 
 #include <util/delay.h>
 
@@ -23,27 +24,24 @@ namespace jtag {
 namespace sinowealth {
 
 /** Program SinoWealth JTAG control/data registers after JTAG entry. */
-void postinit(Tap<4>& tap) {
-  static constexpr uint8_t kIrControl = 2u;
-  static constexpr uint8_t kIrData = 3u;
-  static constexpr uint8_t kIrExit = 12u;
-
-  tap.goto_state(Tap<4>::State::RunTestIdle);
+void postinit(Tap& tap) {
+  tap.goto_state(jtag::State::RunTestIdle);
   tap.idle_clocks(2);
 
-  tap.IR<uint8_t>(kIrControl, nullptr);
-  tap.DR<4, uint8_t>(4, nullptr);
+  tap.IR(Instruction.Control);
+  tap.DR<4>(4);           // TODO: What does this mean?
   tap.idle_clocks(1);
 
-  tap.IR<uint8_t>(kIrData, nullptr);
-  tap.DR<23, uint32_t>(0x403000u, nullptr);
-  tap.idle_clocks(1);
-  _delay_us(50);
-  tap.DR<23, uint32_t>(0x402000u, nullptr);
-  tap.idle_clocks(1);
-  tap.DR<23, uint32_t>(0x400000u, nullptr);
-  tap.idle_clocks(1);
+  tap.IR(Instruction.Data);
+  tap.DR<23>(0x403000u);  // TODO: What does this mean?
+  tap.idle_clocks(1); // Run-Test/Idle
+  _delay_us(50);          // TODO: Is this neccessary?
+  tap.DR<23>(0x402000u);  // TODO: What does this mean?
+  tap.idle_clocks(1); // Run-Test/Idle
+  tap.DR<23>(0x400000u);  // TODO: What does this mean?
+  tap.idle_clocks(1); // Run-Test/Idle
 
+  // TODO: Is this neccessary?
   const uint32_t breakpoints[] = {
       0x630000u, 0x670000u, 0x6B0000u, 0x6F0000u,
       0x730000u, 0x770000u, 0x7B0000u, 0x7F0000u,
@@ -53,11 +51,11 @@ void postinit(Tap<4>& tap) {
     tap.idle_clocks(1);
   }
 
-  tap.IR<uint8_t>(kIrControl, nullptr);
-  tap.DR<4, uint8_t>(1, nullptr);
-  tap.idle_clocks(1);
+  tap.IR(Instruction.Control);
+  tap.DR<4>(1);           // TODO: What does this mean?
+  tap.idle_clocks(1); // Run-Test/Idle
 
-  tap.IR<uint8_t>(kIrExit, nullptr);
+  tap.IR(Instruction.Exit);
 }
 
 }  // namespace sinowealth

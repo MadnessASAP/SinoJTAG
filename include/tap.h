@@ -21,154 +21,69 @@
 #include <stdint.h>
 
 #include "phy.h"
+#include "tap_state.h"
+#ifndef IR_BITS
+#define IR_BITS 4
+#endif
+
 
 namespace jtag {
 
 /** TAP controller with state tracking and IR/DR helpers. */
-template <int IR_BITS>
 class Tap {
  public:
-  /** JTAG TAP state enumeration. */
-  enum class State : uint8_t {
-    TestLogicReset = 0,
-    RunTestIdle = 1,
-    SelectDRScan = 2,
-    CaptureDR = 3,
-    ShiftDR = 4,
-    Exit1DR = 5,
-    PauseDR = 6,
-    Exit2DR = 7,
-    UpdateDR = 8,
-    SelectIRScan = 9,
-    CaptureIR = 10,
-    ShiftIR = 11,
-    Exit1IR = 12,
-    PauseIR = 13,
-    Exit2IR = 14,
-    UpdateIR = 15,
-  };
 
-  Tap() : state_(State::TestLogicReset) {
-    static_assert(IR_BITS > 0 && IR_BITS <= 32, "IR_BITS must be 1..32");
-  }
+  Tap();
 
   /** Configure GPIO for JTAG using the underlying PHY. */
-  void init() { Phy::init(); }
+  void init();
 
   /** Return the currently tracked TAP state. */
-  State state() const { return state_; }
+  State state() const;
 
   /** Force TAP to Test-Logic-Reset by holding TMS high for 5 clocks. */
-  void reset() {
-    for (uint8_t i = 0; i < 5; ++i) {
-      Phy::next_state(true);
-    }
-    state_ = State::TestLogicReset;
-  }
+  void reset();
 
   /** Move the TAP to a target state using the shortest TMS sequence. */
-  void goto_state(State target) {
-    if (state_ == target) {
-      return;
-    }
+  void goto_state(State target);
 
-    const uint8_t start = static_cast<uint8_t>(state_);
-    const uint8_t goal = static_cast<uint8_t>(target);
+  /** Select BYPASS by shifting all-ones into IR.
+   * @post state = Pause-IR
+   */
+  void bypass();
 
-    uint8_t queue[16];
-    uint8_t prev[16];
-    uint8_t prev_tms[16];
-    bool visited[16] = {false};
+  /** Select IR=IDCODE then read 32 bits from DR.
+   * @post state = Pause-DR
+   */
+  uint32_t idcode();
 
-    uint8_t head = 0;
-    uint8_t tail = 0;
-    visited[start] = true;
-    queue[tail++] = start;
-
-    while (head < tail && !visited[goal]) {
-      const uint8_t s = queue[head++];
-      for (uint8_t tms = 0; tms < 2; ++tms) {
-        const uint8_t ns =
-            static_cast<uint8_t>(next_state(static_cast<State>(s), tms != 0));
-        if (!visited[ns]) {
-          visited[ns] = true;
-          prev[ns] = s;
-          prev_tms[ns] = tms;
-          queue[tail++] = ns;
-        }
-      }
-    }
-
-    if (!visited[goal]) {
-      return;
-    }
-
-    uint8_t seq[16];
-    uint8_t len = 0;
-    for (uint8_t cur = goal; cur != start; cur = prev[cur]) {
-      seq[len++] = prev_tms[cur];
-    }
-
-    while (len > 0) {
-      const bool tms = (seq[--len] != 0);
-      step(tms);
-    }
-  }
-
-  /** Shift an instruction register value and optionally capture output. */
+  /** Shift an instruction register value and optionally capture output.
+   * @post state = Update-IR
+   */
   template <typename T>
-  void IR(T out, T* in = nullptr) {
-    static_assert(sizeof(T) <= 4, "IR type must be <= 32 bits");
-    goto_state(State::ShiftIR);
-    const uint32_t capture =
-        Phy::stream_bits(static_cast<uint32_t>(out), IR_BITS, true, nullptr);
-    if (in) {
-      *in = static_cast<T>(capture);
-    }
-    state_ = State::Exit1IR;
-    step(true); // State::UpdateIR
-  }
+  void IR(T out, T* in = nullptr);
 
-  /** Shift a data register value of a fixed bit width. */
+  /** Shift a data register value of a fixed bit width.
+   * @post state = Update-DR
+   */
   template <int bits, typename T>
-  void DR(T out, T* in = nullptr) {
-    static_assert(bits > 0 && bits <= 32, "DR bits must be 1..32");
-    static_assert(sizeof(T) <= 4, "DR type must be <= 32 bits");
-    goto_state(State::ShiftDR);
-    const uint32_t capture =
-        Phy::stream_bits(static_cast<uint32_t>(out), bits, true, nullptr);
-    if (in) {
-      *in = static_cast<T>(capture);
-    }
-    state_ = State::Exit1DR;
-    step(true); // State::UpdateDR
-  }
+  void DR(T out, T* in = nullptr);
 
-  /** Select BYPASS by shifting all-ones into IR. */
-  void bypass() {
-    const uint32_t mask =
-        (IR_BITS >= 32) ? 0xFFFFFFFFu : static_cast<uint32_t>((1ULL << IR_BITS) - 1ULL);
-    IR<uint32_t>(mask, nullptr);
-  }
+  /** Emit additional idle while keeping TMS low.
+   * @warning Only stable in:
+   *  @li Run-Test/Idle
+   *  @li Shift-DR
+   *  @li Shift-IR
+   *  @li Pause-DR
+   *  @li Pause-IR
+   */
+  void idle_clocks(uint8_t count = 1);
 
-  /** Select IDCODE then read N bits from DR. */
-  template <int N = 32, typename T>
-  void idcode(T* in) {
-    static_assert(N > 0 && N <= 32, "IDCODE bits must be 1..32");
-    IR<uint32_t>(kIdcodeInstr, nullptr);
-    DR<N, T>(0, in);
-  }
-
-  /** Emit additional idle clocks while staying in Run-Test/Idle. */
-  void idle_clocks(uint8_t count = 1) {
-    for (uint8_t i = 0; i < count; ++i) {
-      step(false);
-    }
-  }
-
+  static constexpr struct InstructionSet {
+    uint32_t IDCODE;
+    uint32_t BYPASS;
+  } Instruction{0x0000000E, 0xFFFFFFFF};
  private:
-  /** Default IDCODE instruction value (LSB-first). */
-  static constexpr uint32_t kIdcodeInstr = 0xEu;
 
   /** Apply a single TMS transition and update tracked state. */
   void step(bool tms) {
@@ -176,48 +91,31 @@ class Tap {
     state_ = next_state(state_, tms);
   }
 
-  /** Compute the next TAP state for a given state and TMS value. */
-  static inline State next_state(State s, bool tms) {
-    switch (s) {
-      case State::TestLogicReset:
-        return tms ? State::TestLogicReset : State::RunTestIdle;
-      case State::RunTestIdle:
-        return tms ? State::SelectDRScan : State::RunTestIdle;
-      case State::SelectDRScan:
-        return tms ? State::SelectIRScan : State::CaptureDR;
-      case State::CaptureDR:
-        return tms ? State::Exit1DR : State::ShiftDR;
-      case State::ShiftDR:
-        return tms ? State::Exit1DR : State::ShiftDR;
-      case State::Exit1DR:
-        return tms ? State::UpdateDR : State::PauseDR;
-      case State::PauseDR:
-        return tms ? State::Exit2DR : State::PauseDR;
-      case State::Exit2DR:
-        return tms ? State::UpdateDR : State::ShiftDR;
-      case State::UpdateDR:
-        return tms ? State::SelectDRScan : State::RunTestIdle;
-      case State::SelectIRScan:
-        return tms ? State::TestLogicReset : State::CaptureIR;
-      case State::CaptureIR:
-        return tms ? State::Exit1IR : State::ShiftIR;
-      case State::ShiftIR:
-        return tms ? State::Exit1IR : State::ShiftIR;
-      case State::Exit1IR:
-        return tms ? State::UpdateIR : State::PauseIR;
-      case State::PauseIR:
-        return tms ? State::Exit2IR : State::PauseIR;
-      case State::Exit2IR:
-        return tms ? State::UpdateIR : State::ShiftIR;
-      case State::UpdateIR:
-        return tms ? State::SelectDRScan : State::RunTestIdle;
-      default:
-        return State::TestLogicReset;
-    }
-  }
-
   /** Current tracked TAP state. */
   State state_;
-};
+}; // class Tap
+
+template <int bits, typename T>
+void Tap::DR(T out, T* in) {
+  static_assert(bits > 0 && bits <= 32, "DR bits must be 1..32");
+  static_assert(sizeof(T) <= 4, "DR type must be <= 32 bits");
+
+  goto_state(State::ShiftDR);
+  Phy::stream_bits<bits, true>(out, in);
+
+  state_ = State::Exit1DR;
+  step(true); // State::UpdateDR
+}
+
+template <typename T>
+void Tap::IR(T out, T* in) {
+  static_assert(sizeof(T) <= 4, "IR type must be <= 32 bits");
+
+  goto_state(State::ShiftIR);
+  Phy::stream_bits<IR_BITS, true>(out, in);
+
+  state_ = State::Exit1IR;
+  step(true); // State::UpdateIR
+}
 
 }  // namespace jtag
