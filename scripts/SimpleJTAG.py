@@ -6,31 +6,28 @@ Usage: python SimpleJTAG.py [serial_port]
 """
 
 import sys
+from typing import Any
 
-from simple_rpc import Interface
+from simple_rpc import Interface  # pyright: ignore[reportMissingTypeStubs]
 
 
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
 
     print(f"Connecting to {port}...")
-    jtag = Interface(port, baudrate=115200)
+    jtag: Any = Interface(port, 115200)  # pyright: ignore[reportArgumentType]
 
     print("Initializing JTAG interface...")
-    jtag.init()
+    jtag.phy_init()
+    jtag.tap_init()
 
     print("\nScanning IR (4-bit) with 32-bit DR reads:\n")
     print("IR   | DR (32-bit)")
     print("-----|------------")
 
-    jtag.ir(0)
-    for i in range(16):
-        dr_val = jtag.dr(0, 32)
-        print(f"0x0  | 0x{dr_val:08X}")
-
     for ir_val in range(16):
-        jtag.ir(ir_val)
-        dr_val = jtag.dr(0, 32)
+        jtag.tap_ir(ir_val)
+        dr_val = jtag.tap_dr(0, 32)
         print(f"0x{ir_val:X}  | 0x{dr_val:08X}")
 
     print("\nDone.")

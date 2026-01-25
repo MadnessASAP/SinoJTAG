@@ -20,71 +20,79 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "icp.h"
-#include "config.h"
-#include "phy.h"
-#include "sinowealth.h"
+#include <SimpleJTAG/phy.h>
+
+#include "sinowealth/phy.h"
+#include "sinowealth/icp.h"
 #include <util/delay.h>
 
-namespace jtag {
-namespace icp {
+namespace {
+  /** Flip the bits of a uint8_t */
+  inline constexpr uint8_t bit_reverse(uint8_t v) {
+    v = ((v >> 4) & 0x0F) | ((v << 4) & 0xF0);
+    v = ((v >> 2) & 0x33) | ((v << 2) & 0xCC);
+    v = ((v >> 1) & 0x55) | ((v << 1) & 0xAA);
+    return v;
+  }
 
-void init() {
+  inline constexpr uint16_t bit_reverse(uint16_t v) {
+    v = ((v >> 8) & 0x00FF) | ((v << 8) & 0xFF00);
+    v = ((v >> 4) & 0x0F0F) | ((v << 4) & 0xF0F0);
+    v = ((v >> 2) & 0x3333) | ((v << 2) & 0xCCCC);
+    v = ((v >> 1) & 0x5555) | ((v << 1) & 0xAAAA);
+    return v;
+  }
+}
+
+namespace sinowealth {
+
+void ICP::init() {
   _delay_us(800);       // TODO: Verify length of delay
   ping();
 }
 
-/** Exit is accomplished by holding TCK high while pualsing TMS, returns to diag mode */
-void exit() {
-  Phy::write_port(config::tck::port, config::tck::index, true);
-  Phy::write_port(config::tms::port, config::tms::index, true);
-  _delay_us(2);
-  Phy::write_port(config::tms::port, config::tms::index, false);
-  _delay_us(2);
-}
-
-void send_byte(uint8_t byte) {
-  // bytes go out MSB
-  byte = sinowealth::reverse8(byte);
+void ICP::send_byte(uint8_t byte) {
+  // bytes go out MSb-first
+  byte = bit_reverse(byte);
   Phy::stream_bits<8, false>(byte);
   Phy::next_state(false);   // 1 extra clock pulse
 }
 
 
-uint8_t receive_byte() {
-  // and come back LSB
+uint8_t ICP::receive_byte() {
+  // and come back LSb-first
   uint8_t byte = 0;
   Phy::stream_bits<8, false, uint8_t>(0, &byte);
   Phy::next_state(false);
   return byte;
 }
 
-void ping() {
-  send_byte(cmd::PING);
+void ICP::ping() {
+  send_byte(CommandSet::PING);
   send_byte(0xFF);
 }
 
-bool verify() {
+bool ICP::verify() {
   set_address(0xFF69);
 
-  send_byte(cmd::GET_IB_OFFSET);
+  send_byte(CommandSet::GET_IB_OFFSET);
   uint8_t b = receive_byte();
   (void)receive_byte();  // discard high byte
 
   return (b == 0x69);
 }
 
-void set_address(uint16_t address) {
-  send_byte(cmd::SET_IB_OFFSET_L);
+void ICP::set_address(uint16_t address) {
+  send_byte(CommandSet::SET_IB_OFFSET_L);
   send_byte(static_cast<uint8_t>(address & 0xFF));
-  send_byte(cmd::SET_IB_OFFSET_H);
+  send_byte(CommandSet::SET_IB_OFFSET_H);
   send_byte(static_cast<uint8_t>((address >> 8) & 0xFF));
 }
 
-void read_flash(uint16_t address, uint8_t* buffer, uint8_t size) {
+void ICP::read_flash(uint16_t address, uint8_t* buffer, uint8_t size) {
   set_address(address);
   // TODO: Support custom block
-  send_byte(cmd::READ_FLASH);
+  send_byte(CommandSet::READ_FLASH);
 
   for (uint8_t n = 0; n < size; ++n) {
     buffer[n] = receive_byte();
@@ -151,4 +159,3 @@ void read_flash(uint16_t address, uint8_t* buffer, uint8_t size) {
 // }
 
 }  // namespace icp
-}  // namespace jtag

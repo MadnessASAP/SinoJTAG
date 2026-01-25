@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2026 Michael "ASAP" Weinrich
  *
+ * With inclusions from https://github.com/gashtaan/sinowealth-8051-dumper
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -15,31 +17,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "sinowealth.h"
-#include "tap_state.h"
+#include "sinowealth/tap.h"
 
-#include <util/delay.h>
-
-namespace jtag {
 namespace sinowealth {
 
-/** Program SinoWealth JTAG control/data registers after JTAG entry. */
-void postinit(Tap& tap) {
-  tap.goto_state(jtag::State::RunTestIdle);
-  tap.idle_clocks(2);
+void Tap::init() {
+  goto_state(State::RunTestIdle);
+  idle_clocks(2);
 
-  tap.IR(Instruction.Control);
-  tap.DR<4>(4);           // TODO: What does this mean?
-  tap.idle_clocks(1);
+  IR(InstructionSet::Control);
+  DR<4>(4);           // TODO: What does this mean?
+  idle_clocks(1);
 
-  tap.IR(Instruction.Data);
-  tap.DR<23>(0x403000u);  // TODO: What does this mean?
-  tap.idle_clocks(1); // Run-Test/Idle
+  IR(InstructionSet::Data);
+  DR<23>(0x403000u);  // TODO: What does this mean?
+  idle_clocks(1); // Run-Test/Idle
   _delay_us(50);          // TODO: Is this neccessary?
-  tap.DR<23>(0x402000u);  // TODO: What does this mean?
-  tap.idle_clocks(1); // Run-Test/Idle
-  tap.DR<23>(0x400000u);  // TODO: What does this mean?
-  tap.idle_clocks(1); // Run-Test/Idle
+  DR<23>(0x402000u);  // TODO: What does this mean?
+  idle_clocks(1); // Run-Test/Idle
+  DR<23>(0x400000u);  // TODO: What does this mean?
+  idle_clocks(1); // Run-Test/Idle
 
   // TODO: Is this neccessary?
   const uint32_t breakpoints[] = {
@@ -47,16 +44,15 @@ void postinit(Tap& tap) {
       0x730000u, 0x770000u, 0x7B0000u, 0x7F0000u,
   };
   for (uint8_t i = 0; i < (sizeof(breakpoints) / sizeof(breakpoints[0])); ++i) {
-    tap.DR<23, uint32_t>(breakpoints[i], nullptr);
-    tap.idle_clocks(1);
+    DR<23, uint32_t>(breakpoints[i], nullptr);
+    idle_clocks(1);
   }
 
-  tap.IR(Instruction.Control);
-  tap.DR<4>(1);           // TODO: What does this mean?
-  tap.idle_clocks(1); // Run-Test/Idle
+  IR(InstructionSet::Control);
+  DR<4>(1);           // TODO: What does this mean?
+  idle_clocks(1); // Run-Test/Idle
 
-  tap.IR(Instruction.Exit);
+  IR(InstructionSet::Exit);
 }
 
-}  // namespace sinowealth
-}  // namespace jtag
+}

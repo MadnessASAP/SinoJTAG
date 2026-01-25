@@ -17,12 +17,25 @@
 
 #pragma once
 
-namespace rpc {
+#include <SimpleJTAG/tap.h>
 
-/** Initialize serial communication. */
-void setup();
+namespace sinowealth {
 
-/** Process incoming RPC requests. */
-void loop();
+class Tap : public SimpleJTAG::Tap {
+ public:
+  /** Init TAP state and setup target SinoWealth MCU for proper JTAG usage */
+  void init();
 
-}  // namespace rpc
+  /** Leaves JTAG and returns to SinoWealth READY mode
+    * Equivalent to sinowealth::Phy.reset()
+    */
+  void exit();
+
+  struct InstructionSet : SimpleJTAG::Tap::InstructionSet {
+    static constexpr uint8_t Control = 0x2;
+    static constexpr uint8_t Data = 0x3;
+    static constexpr uint8_t Exit = 0xC;
+  };
+};
+
+ }

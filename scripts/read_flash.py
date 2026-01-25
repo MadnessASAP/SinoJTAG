@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
-"""Test flash reading with postinit enabled."""
 
 import sys
 import time
-from tracemalloc import start
+from typing import Any
 
-from simple_rpc import Interface
+from simple_rpc import Interface  # pyright: ignore[reportMissingTypeStubs]
 
 
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
 
-    jtag = Interface(device=port, baudrate=115200)
+    jtag: Any = Interface(device=port, baudrate=115200)  # pyright: ignore[reportCallIssue]
+
     print("Init (with postinit)...")
-    jtag.init()
-    time.sleep(0.1)
+    jtag.phy_init()
+    jtag.icp_init()
 
-    # Verify IDCODE
-    jtag.ir(0xE)
-    idcode = jtag.dr(0, 16)
-    print(f"IDCODE: 0x{idcode:04X}")
-
-    if idcode != 0xC14C:
-        print("ERROR: Unexpected IDCODE, target may not be responding")
+    if jtag.icp_verify():
+        print("ICP init okay")
+    else:
+        print("ICP init fail")
         return
 
     print("\n=== Flash Read Test ===\n")
@@ -31,7 +28,7 @@ def main():
     addr = 0x0
     start_time = time.monotonic()
     while addr < 0x10000:
-        data += jtag.flash_read(addr)
+        data += jtag.icp_read(addr, 64)
         addr = len(data)
         run_time = time.monotonic() - start_time
         print(f"Read 0x{len(data):04X} {addr / run_time:.0f} BPS", end="\r")

@@ -18,11 +18,8 @@
 #pragma once
 
 #include <stdint.h>
-
-#include "tap.h"
-
-namespace jtag {
-namespace flash {
+#include <SimpleJTAG/tap.h>
+using namespace SimpleJTAG;
 
 class Iterator;
 
@@ -77,6 +74,3 @@ class Iterator {
   uint16_t addr_ = 0;
   uint8_t data_ = 0;
 };
-
-}  // namespace flash
-}  // namespace jtag

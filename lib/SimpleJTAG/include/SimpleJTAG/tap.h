@@ -21,19 +21,37 @@
 #include <stdint.h>
 
 #include "phy.h"
-#include "tap_state.h"
-#ifndef IR_BITS
-#define IR_BITS 4
-#endif
 
 
-namespace jtag {
+namespace SimpleJTAG {
 
 /** TAP controller with state tracking and IR/DR helpers. */
 class Tap {
  public:
+  /** JTAG TAP state enumeration. */
+  enum class State : uint8_t {
+    TestLogicReset = 0,
+    RunTestIdle = 1,
+    SelectDRScan = 2,
+    CaptureDR = 3,
+    ShiftDR = 4,
+    Exit1DR = 5,
+    PauseDR = 6,
+    Exit2DR = 7,
+    UpdateDR = 8,
+    SelectIRScan = 9,
+    CaptureIR = 10,
+    ShiftIR = 11,
+    Exit1IR = 12,
+    PauseIR = 13,
+    Exit2IR = 14,
+    UpdateIR = 15,
+  };
 
   Tap();
+
+  /** Return the next TAP state given the current state and TMS */
+  static constexpr State next_state(State s, bool tms);
 
   /** Configure GPIO for JTAG using the underlying PHY. */
   void init();
@@ -79,10 +97,11 @@ class Tap {
    */
   void idle_clocks(uint8_t count = 1);
 
-  static constexpr struct InstructionSet {
-    uint32_t IDCODE;
-    uint32_t BYPASS;
-  } Instruction{0x0000000E, 0xFFFFFFFF};
+  struct InstructionSet {
+    static constexpr uint32_t IDCODE = 0x0000000E;
+    static constexpr uint32_t BYPASS = 0xFFFFFFFF;
+  };
+
  private:
 
   /** Apply a single TMS transition and update tracked state. */
@@ -112,10 +131,50 @@ void Tap::IR(T out, T* in) {
   static_assert(sizeof(T) <= 4, "IR type must be <= 32 bits");
 
   goto_state(State::ShiftIR);
-  Phy::stream_bits<IR_BITS, true>(out, in);
+  Phy::stream_bits<config::IR_BITS, true>(out, in);
 
   state_ = State::Exit1IR;
   step(true); // State::UpdateIR
 }
 
-}  // namespace jtag
+
+constexpr Tap::State Tap::next_state(State s, bool tms) {
+  switch (s) {
+    case State::TestLogicReset:
+      return tms ? State::TestLogicReset : State::RunTestIdle;
+    case State::RunTestIdle:
+      return tms ? State::SelectDRScan : State::RunTestIdle;
+    case State::SelectDRScan:
+      return tms ? State::SelectIRScan : State::CaptureDR;
+    case State::CaptureDR:
+      return tms ? State::Exit1DR : State::ShiftDR;
+    case State::ShiftDR:
+      return tms ? State::Exit1DR : State::ShiftDR;
+    case State::Exit1DR:
+      return tms ? State::UpdateDR : State::PauseDR;
+    case State::PauseDR:
+      return tms ? State::Exit2DR : State::PauseDR;
+    case State::Exit2DR:
+      return tms ? State::UpdateDR : State::ShiftDR;
+    case State::UpdateDR:
+      return tms ? State::SelectDRScan : State::RunTestIdle;
+    case State::SelectIRScan:
+      return tms ? State::TestLogicReset : State::CaptureIR;
+    case State::CaptureIR:
+      return tms ? State::Exit1IR : State::ShiftIR;
+    case State::ShiftIR:
+      return tms ? State::Exit1IR : State::ShiftIR;
+    case State::Exit1IR:
+      return tms ? State::UpdateIR : State::PauseIR;
+    case State::PauseIR:
+      return tms ? State::Exit2IR : State::PauseIR;
+    case State::Exit2IR:
+      return tms ? State::UpdateIR : State::ShiftIR;
+    case State::UpdateIR:
+      return tms ? State::SelectDRScan : State::RunTestIdle;
+    default:
+      return State::TestLogicReset;
+  }
+}
+
+}  // namespace SimpleJTAG

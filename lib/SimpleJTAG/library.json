@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
+  "name": "SimpleJTAG",
+  "version": "0.1",
+  "description": "A C++ JTAG interface library for AVR.",
+  "keywords": "jtag",
+  "authors": [
+    {
+      "name": "Michael 'ASAP' Weinrich",
+      "email": "michael@a5ap.net"
+    }
+  ],
+  "license": "GPLv3",
+  "dependencies": {},
+  "frameworks": "*",
+  "platforms": ["atmelavr"],
+  "build": {
+    "unflags": ["-std=gnu++11"],
+    "flags": ["-std=gnu++17"]
+  }
+}

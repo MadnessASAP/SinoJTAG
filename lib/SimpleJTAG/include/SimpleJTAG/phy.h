@@ -17,10 +17,6 @@
 
 #pragma once
 
-#ifndef F_CPU
-#define F_CPU 16000000UL
-#endif
-
 #include <avr/io.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -28,7 +24,7 @@
 
 #include "config.h"
 
-namespace jtag {
+namespace SimpleJTAG {
 
 /** Stateless JTAG PHY bit-banging implementation. */
 struct Phy {
@@ -45,6 +41,19 @@ struct Phy {
     write_port(config::tdo::port, config::tdo::index, config::tdo_pullup);
     write_port(config::tck::port, config::tck::index, false);
     write_port(config::tms::port, config::tms::index, true);
+    write_port(config::tdi::port, config::tdi::index, false);
+  }
+
+  /**Reset IO to Hi-Z pullups off */
+  static inline void stop() {
+    set_ddr(config::tck::ddr, config::tck::index, false);
+    set_ddr(config::tms::ddr, config::tms::index, false);
+    set_ddr(config::tdi::ddr, config::tdi::index, false);
+    set_ddr(config::tdo::ddr, config::tdo::index, false);
+
+    write_port(config::tdo::port, config::tdo::index, false);
+    write_port(config::tck::port, config::tck::index, false);
+    write_port(config::tms::port, config::tms::index, false);
     write_port(config::tdi::port, config::tdi::index, false);
   }
 
@@ -162,4 +171,4 @@ struct Phy {
   }
 };
 
-} // namespace jtag
+} // namespace SimpleJTAG

@@ -15,19 +15,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "tap.h"
+#include "SimpleJTAG/tap.h"
 
-namespace jtag {
+namespace SimpleJTAG {
 
 Tap::Tap() : state_(State::TestLogicReset) {
-  static_assert(IR_BITS > 0 && IR_BITS <= 32, "IR_BITS must be 1..32");
+  static_assert(config::IR_BITS > 0 && config::IR_BITS <= 32, "IR_BITS must be 1..32");
 }
 
 /** Configure GPIO for JTAG using the underlying PHY. */
-void Tap::init() { Phy::init(); }
+void Tap::init() { }
 
 /** Return the currently tracked TAP state. */
-State Tap::state() const { return state_; }
+Tap::State Tap::state() const { return state_; }
 
 /** Force TAP to Test-Logic-Reset by holding TMS high for 5 clocks. */
 void Tap::reset() {
@@ -40,14 +40,14 @@ void Tap::reset() {
 /** Select IR=IDCODE then read 32 bits from DR. */
 uint32_t Tap::idcode() {
   uint32_t idcode;
-  IR(Instruction.IDCODE);
+  IR(InstructionSet::IDCODE);
   DR<32>(0UL, &idcode);
   return idcode;
 }
 
 /** Select BYPASS by shifting all-ones into IR. */
 void Tap::bypass() {
-  IR(Instruction.BYPASS);
+  IR(InstructionSet::BYPASS);
 }
 
 /** Move the TAP to a target state using the shortest TMS sequence. */
@@ -113,4 +113,4 @@ void Tap::idle_clocks(uint8_t count) {
   }
 }
 
-}
+} // SimpleJTAG

@@ -14,19 +14,37 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 #pragma once
 
-#include <stdint.h>
+#include <SimpleJTAG/phy.h>
 
-/** Initialize UART0 for transmit-only logging at the given baud. */
-void serial_init(uint32_t baud);
+namespace sinowealth {
 
-/** Blocking transmit of a single byte. */
-void serial_write_byte(uint8_t data);
+class Phy : public SimpleJTAG::Phy {
+ public:
+  enum class Mode : uint8_t {
+    READY = 0x00,
+    JTAG = 0xA5,
+    ICP = 0x69,
+    NOT_INITIALIZED = 0xFF
+  };
 
-/** Write a null-terminated ASCII string. */
-void serial_write_str(const char* text);
+  /**Initialize the JTAG interface for SinoWealth 8051 MCUs
+   * Emits special waveforms out JTAG pins that enables JTAG on the target MCU
+   */
+  void init(bool wait_vref = true);
 
-/** Write a 32-bit value as uppercase hexadecimal. */
-void serial_write_hex32(uint32_t value);
+  /**Switch to new SinoWealth mode */
+  Mode mode(Mode mode);
+
+  /**Get current mode */
+  Mode mode() { return _mode; };
+
+  /**Reset PHY to READY state */
+  Mode reset();
+
+ private:
+  Mode _mode = Mode::NOT_INITIALIZED;
+};
+
+} // namespace sinowealth

@@ -39,6 +39,9 @@ DEFINE_PIN(vref, D, 6);
 
 #undef DEFINE_PIN
 
+/** Width of IR register for TAP */
+static constexpr uint8_t IR_BITS = 4;
+
 /** Enable pull-up on TDO input (set false if target drives push-pull). */
 static constexpr bool tdo_pullup = true;
 
