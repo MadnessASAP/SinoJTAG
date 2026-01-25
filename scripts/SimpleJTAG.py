@@ -6,16 +6,15 @@ Usage: python SimpleJTAG.py [serial_port]
 """
 
 import sys
-from typing import Any
 
-from simple_rpc import Interface  # pyright: ignore[reportMissingTypeStubs]
+from simple_rpc import Interface
 
 
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
 
     print(f"Connecting to {port}...")
-    jtag: Any = Interface(port, 115200)  # pyright: ignore[reportArgumentType]
+    jtag = Interface(port, 115200)
 
     print("Initializing JTAG interface...")
     jtag.phy_init()
@@ -26,7 +25,7 @@ def main():
     print("-----|------------")
 
     for ir_val in range(16):
-        jtag.tap_ir(ir_val)
+        _ = jtag.tap_ir(ir_val)
         dr_val = jtag.tap_dr(0, 32)
         print(f"0x{ir_val:X}  | 0x{dr_val:08X}")
 

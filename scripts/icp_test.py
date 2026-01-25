@@ -8,7 +8,7 @@ from simple_rpc import Interface
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
 
-    jtag = Interface(device=port, baudrate=115200)
+    jtag = Interface(port, baudrate=115200)
     print("RPC Started")
     jtag.phy_init()
     print("PHY initialized")
