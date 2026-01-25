@@ -60,6 +60,9 @@ namespace {
 namespace sinowealth {
 
 void Phy::init(bool wait_vref) {
+  // skip if already initialized
+  if (_mode != Mode::NOT_INITIALIZED) return;
+
   gpio_early_setup();
 
   if (wait_vref) {
@@ -119,6 +122,11 @@ void Phy::init(bool wait_vref) {
   ::tms(false);
 
   _mode = Mode::READY;
+}
+
+void Phy::stop() {
+  SimpleJTAG::Phy::stop();
+  _mode = Mode::NOT_INITIALIZED;
 }
 
 Phy::Mode Phy::mode(Mode mode) {

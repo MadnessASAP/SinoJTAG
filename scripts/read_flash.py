@@ -1,42 +1,27 @@
 #!/usr/bin/env python3
 
 import sys
-import time
-from typing import Any
+from collections.abc import Sequence
 
-from simple_rpc import Interface  # pyright: ignore[reportMissingTypeStubs]
+from SinoJTAG import Flash, ReadIterator
 
 
 def main():
     port = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
+    output = sys.argv[2] if len(sys.argv) > 2 else "dump.bin"
 
-    jtag: Any = Interface(device=port, baudrate=115200)  # pyright: ignore[reportCallIssue]
+    buffer: Sequence[int] = []
 
-    print("Init (with postinit)...")
-    jtag.phy_init()
-    jtag.icp_init()
+    with Flash(port) as flash:
+        for byte in ReadIterator(flash, 0x0000, 0x10000):
+            buffer.append(byte)
+            if len(buffer) % 1024 == 0:
+                print(f"\rRead 0x{len(buffer):04X} bytes", end="")
 
-    if jtag.icp_verify():
-        print("ICP init okay")
-    else:
-        print("ICP init fail")
-        return
+    print(f"\nRead {len(buffer)} bytes")
 
-    print("\n=== Flash Read Test ===\n")
-
-    data = []
-    addr = 0x0
-    start_time = time.monotonic()
-    while addr < 0x10000:
-        data += jtag.icp_read(addr, 64)
-        addr = len(data)
-        run_time = time.monotonic() - start_time
-        print(f"Read 0x{len(data):04X} {addr / run_time:.0f} BPS", end="\r")
-
-    with open("./dump.bin", "wb") as file:
-        file.write(bytearray(data))
-
-    print(f"\nRead {len(data)} bytes")
+    with open(output, "wb") as file:
+        _ = file.write(bytearray(buffer))
 
 
 if __name__ == "__main__":

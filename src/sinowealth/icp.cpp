@@ -99,63 +99,57 @@ void ICP::read_flash(uint16_t address, uint8_t* buffer, uint8_t size) {
   }
 }
 
-// bool write_flash(uint16_t address, const uint8_t* buffer, uint16_t size) {
-//   if (size == 0) {
-//     return false;
-//   }
+bool ICP::write_flash(uint16_t address, const uint8_t* buffer, uint16_t size) {
+  if (size == 0) {
+    return false;
+  }
+  set_address(address);
 
-//   enter();
-//   set_address(address);
+  send_byte(CommandSet::SET_IB_DATA);
+  send_byte(buffer[0]);
 
-//   send_byte(cmd::SET_IB_DATA);
-//   send_byte(buffer[0]);
+  // Write unlock sequence
+  constexpr uint8_t unlock[] = { 0x6E, 0x15, 0x0A, 0x09, 0x06 };
+  for (auto b : unlock) {
+    send_byte(b);
+  }
 
-//   // Write initiation sequence
-//   send_byte(0x6E);
-//   send_byte(0x15);
-//   send_byte(0x0A);
-//   send_byte(0x09);
-//   send_byte(0x06);
+  // Remaining data bytes with inter-byte delay
+  for (uint16_t n = 1; n < size; ++n) {
+    send_byte(buffer[n]);
+    _delay_us(5);
+    send_byte(0x00);
+  }
 
-//   // Remaining data bytes with inter-byte delay
-//   for (uint16_t n = 1; n < size; ++n) {
-//     send_byte(buffer[n]);
-//     _delay_us(5);
-//     send_byte(0x00);
-//   }
+  // Write termination sequence
+  send_byte(0x00);
+  send_byte(0xAA);
+  send_byte(0x00);
+  send_byte(0x00);
+  _delay_us(5);
 
-//   // Write termination sequence
-//   send_byte(0x00);
-//   send_byte(0xAA);
-//   send_byte(0x00);
-//   send_byte(0x00);
-//   _delay_us(5);
+  return true;
+}
 
-//   return true;
-// }
+bool ICP::erase_flash(uint16_t address) {
+  set_address(address);
 
-// bool erase_flash(uint16_t address) {
-//   enter();
-//   set_address(address);
+  send_byte(CommandSet::SET_IB_DATA);
+  send_byte(0x00);
 
-//   send_byte(cmd::SET_IB_DATA);
-//   send_byte(0x00);
+  // Erase unlock sequence
+  constexpr uint8_t unlock[] = { 0xE6, 0x15, 0x0A, 0x09, 0x06 };
+  for (auto b : unlock) {
+    send_byte(b);
+  }
 
-//   // Erase initiation sequence
-//   send_byte(0xE6);
-//   send_byte(0x15);
-//   send_byte(0x0A);
-//   send_byte(0x09);
-//   send_byte(0x06);
+  send_byte(0x00);
+  _delay_ms(300);
+  send_byte(0x00);
+  bool status = Phy::read_pin(config::tdo::pin, config::tdo::index);
+  send_byte(0x00);
 
-//   send_byte(0x00);
-//   _delay_ms(300);
-//   send_byte(0x00);
-//   bool status = Phy::read_pin(config::tdo::pin, config::tdo::index);
-//   send_byte(0x00);
-
-//   reset();
-//   return status;
-// }
+  return status;
+}
 
 }  // namespace icp

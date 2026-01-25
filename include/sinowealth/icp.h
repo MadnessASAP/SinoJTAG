@@ -47,11 +47,11 @@ class ICP {
   /** Read flash memory into buffer. */
   void read_flash(uint16_t address, uint8_t* buffer, uint8_t size);
 
-  // /** Write flash memory from buffer. Enters ICP mode internally. Does NOT reset. */
-  // bool write_flash(uint16_t address, const uint8_t* buffer, uint16_t size);
+  /** Write flash memory from buffer. Enters ICP mode internally. Does NOT reset. */
+  bool write_flash(uint16_t address, const uint8_t* buffer, uint16_t size);
 
-  // /** Erase flash sector at address. Enters/exits ICP mode internally. */
-  // bool erase_flash(uint16_t address);
+  /** Erase flash sector at address. Enters/exits ICP mode internally. */
+  bool erase_flash(uint16_t address);
 
   struct CommandSet {
     static constexpr uint8_t SET_IB_OFFSET_L = 0x40;

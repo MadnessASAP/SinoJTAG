@@ -22,6 +22,18 @@ class Interface:
         """Initialize SinoWealth diagnostics mode."""
         ...
 
+    def phy_reset(self) -> bool:
+        """Reset PHY to READY state.
+
+        Returns:
+            True if reset was successful.
+        """
+        ...
+
+    def phy_stop(self) -> None:
+        """Sets JTAG ping to Hi-Z, will require target power cycle to use JTAG again."""
+        ...
+
     # TAP layer
     def tap_init(self) -> None:
         """Initialize JTAG interface."""
@@ -114,3 +126,25 @@ class Interface:
             Sequence of bytes read from flash.
         """
         ...
+
+    def icp_erase(self, address: int) -> bool:
+        """Erase a sector of flash memory.
+
+        Args:
+            address: 16-bit flash address. Only 6 MSb are significant.
+
+        Returns:
+            True if erase succeeded.
+        """
+        ...
+
+    def icp_write(self, address: int, buffer: Sequence[int]) -> bool:
+        """Write data to flash.
+
+        Args:
+            address: 16-bit flash address.
+            buffer: Data to be written
+
+        Returns:
+            True if write successful.
+        """

@@ -34,6 +34,9 @@ class Phy : public SimpleJTAG::Phy {
    */
   void init(bool wait_vref = true);
 
+  /**Resets state to NOT_INITIALIZED and return GPIOs to High Z */
+  void stop();
+
   /**Switch to new SinoWealth mode */
   Mode mode(Mode mode);
 
@@ -42,6 +45,7 @@ class Phy : public SimpleJTAG::Phy {
 
   /**Reset PHY to READY state */
   Mode reset();
+
 
  private:
   Mode _mode = Mode::NOT_INITIALIZED;

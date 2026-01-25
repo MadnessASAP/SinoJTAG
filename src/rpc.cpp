@@ -15,21 +15,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-// #include <stdlib.h>
-// #include <stddef.h>
 #include "rpc.h"
 
 #include <Arduino.h>
-// #include <stdint.h>
 #include <simpleRPC.h>
-// #include <SimpleJTAG/tap.h>
+#include <vector.tcc>
 
-// #include "flash.h"
 #include "sinowealth/tap.h"
 #include "sinowealth/phy.h"
 #include "sinowealth/icp.h"
-// #include "vector.tcc"
-// #include "icp.h"
 
 #ifndef UART_BAUD
 #define UART_BAUD 115200UL
@@ -43,6 +37,14 @@ extern sinowealth::ICP _icp;
 namespace phy {
   void init() {
     _phy.init();
+  }
+
+  bool reset() {
+    return _phy.reset() == sinowealth::Phy::Mode::READY;
+  }
+
+  void stop() {
+    _phy.stop();
   }
 }
 
@@ -122,6 +124,26 @@ Vector<uint8_t> read(uint16_t address, uint8_t size) {
   return Vector(size, buffer, true);
 }
 
+bool erase(uint16_t address) {
+  if (_phy.mode() != sinowealth::Phy::Mode::READY) { _phy.reset(); }
+  _phy.mode(sinowealth::Phy::Mode::ICP);
+  _icp.init();
+
+  bool okay = _icp.erase_flash(address);
+  _phy.reset();
+  return okay;
+}
+
+bool write(uint16_t address, Vector<uint8_t>& buffer) {
+  if (_phy.mode() != sinowealth::Phy::Mode::READY) { _phy.reset(); }
+  _phy.mode(sinowealth::Phy::Mode::ICP);
+  _icp.init();
+
+  bool okay = _icp.write_flash(address, &buffer[0], buffer.size);
+  _phy.reset();
+  return okay;
+}
+
 }  // namespace icp
 
 namespace rpc {
@@ -133,6 +155,10 @@ void loop() {
       Serial,
       phy::init,
         F("phy_init: Initialize SinoWealth diagnostics mode."),
+      phy::reset,
+        F("phy_reset: Reset PHY to READY state. @return: Okay"),
+      phy::stop,
+        F("phy_stop: Sets JTAG ping to Hi-Z, will require target power cycle to use JTAG again."),
       tap::init,
         F("tap_init: Initialize JTAG interface."),
       tap::state,
@@ -151,14 +177,16 @@ void loop() {
         F("tap_idcode: Read IDCODE. @return: 16-bit ID."),
       tap::idle_clocks,
         F("tap_idle_clocks: Emit idle clocks. @count: Number."),
-      // flash::read,
-      //   F("flash_read: Read 128 bytes from flash. @address: 16-bit addr. @return: [Byte]."),
       icp::init,
         F("icp_init: Initialize ICP interface."),
       icp::verify,
         F("icp_verify: Perform readback test on ICP. @return: Okay"),
       icp::read,
-        F("icp_read: Read flash memory via ICP. @address: 16-bit address. @size: 8-bit read length. @return: [Byte]")
+        F("icp_read: Read flash memory via ICP. @address: 16-bit address. @size: 8-bit read length. @return: Data"),
+      icp::erase,
+        F("icp_erase: Erase a sector of flash memory. @address: 16-bit address. @return: Okay"),
+      icp::write,
+        F("icp_write: Write data to previously erase sector. @address: 16-bit address. @buffer: Data to write. @return: Okay")
   );
 }
 
