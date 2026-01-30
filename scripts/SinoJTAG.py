@@ -4,16 +4,53 @@ Provides a file-like interface for reading, erasing, and writing
 SinoWealth MCU flash memory via Arduino-based JTAG programmer.
 """
 
+import argparse
 from collections.abc import Buffer, Iterator
+from dataclasses import dataclass
 from io import RawIOBase
 from types import TracebackType
-from typing import Self, override
+from typing import Self, cast, override
 
 from simple_rpc import Interface
 
 # Hardware constraints
 MAX_TRANSFER_SIZE = 256  # Arduino RAM limit
 ERASE_BLOCK_SIZE = 1024  # Target flash erase block size
+
+
+@dataclass
+class _ReadArgs:
+    port: str
+    baudrate: int
+    output: str
+    address: int
+    size: int
+
+
+@dataclass
+class _EraseArgs:
+    port: str
+    baudrate: int
+    address: int
+    size: int
+
+
+@dataclass
+class _FlashArgs:
+    port: str
+    baudrate: int
+    input: str
+    address: int
+    no_erase: bool
+    verify: bool
+
+
+@dataclass
+class _VerifyArgs:
+    port: str
+    baudrate: int
+    input: str
+    address: int
 
 
 class FlashDevice:
@@ -300,3 +337,238 @@ class FlashReader(Iterator[int]):
 # Backward compatibility aliases
 Flash = FlashIO
 ReadIterator = FlashReader
+
+
+def _parse_int(value: str) -> int:
+    """Parse integer with support for hex (0x) prefix."""
+    return int(value, 0)
+
+
+def _cmd_read(args: _ReadArgs) -> int:
+    """Read flash contents to file."""
+    print(f"Reading {args.size} bytes from 0x{args.address:04X}...")
+
+    with FlashIO(args.port, args.baudrate) as flash:
+        _ = flash.seek(args.address)
+        data = flash.read(args.size)
+
+    with open(args.output, "wb") as f:
+        _ = f.write(data)
+
+    print(f"Read {len(data)} bytes to {args.output}")
+    return 0
+
+
+def _cmd_erase(args: _EraseArgs) -> int:
+    """Erase flash blocks."""
+    start_block = (args.address // ERASE_BLOCK_SIZE) * ERASE_BLOCK_SIZE
+    end_addr = args.address + args.size
+    num_blocks = (end_addr - start_block + ERASE_BLOCK_SIZE - 1) // ERASE_BLOCK_SIZE
+
+    print(f"Erasing {num_blocks} block(s) from 0x{start_block:04X}...")
+
+    with FlashIO(args.port, args.baudrate) as flash:
+        erased = flash.erase_range(args.address, args.size)
+
+    print(f"Erased {erased} block(s)")
+    return 0
+
+
+def _cmd_flash(args: _FlashArgs) -> int:
+    """Program flash from file."""
+    with open(args.input, "rb") as f:
+        data = f.read()
+
+    print(f"Programming {len(data)} bytes at 0x{args.address:04X}...")
+
+    with FlashIO(args.port, args.baudrate) as flash:
+        if not args.no_erase:
+            blocks = flash.erase_range(args.address, len(data))
+            print(f"Erased {blocks} block(s)")
+
+        _ = flash.seek(args.address)
+        written = flash.write(data)
+
+    print(f"Wrote {written} bytes")
+
+    if args.verify:
+        print("Verifying...")
+        return _verify_data(args.port, args.baudrate, args.address, data)
+
+    return 0
+
+
+def _cmd_verify(args: _VerifyArgs) -> int:
+    """Verify flash contents against file."""
+    with open(args.input, "rb") as f:
+        expected = f.read()
+
+    print(f"Verifying {len(expected)} bytes at 0x{args.address:04X}...")
+    return _verify_data(args.port, args.baudrate, args.address, expected)
+
+
+def _verify_data(port: str, baudrate: int, address: int, expected: bytes) -> int:
+    """Compare flash contents against expected data."""
+    with FlashIO(port, baudrate) as flash:
+        _ = flash.seek(address)
+        actual = flash.read(len(expected))
+
+    if actual == expected:
+        print("Verification passed")
+        return 0
+
+    # Find first mismatch
+    for i, (a, e) in enumerate(zip(actual, expected, strict=False)):
+        if a != e:
+            print(
+                f"Verification FAILED at 0x{address + i:04X}: expected 0x{e:02X}, got 0x{a:02X}"
+            )
+            return 1
+
+    if len(actual) != len(expected):
+        print(
+            f"Verification FAILED: size mismatch (expected {len(expected)}, got {len(actual)})"
+        )
+        return 1
+
+    return 1  # Should not reach here
+
+
+def main() -> int:
+    """Main entry point for CLI."""
+    parser = argparse.ArgumentParser(
+        prog="SinoJTAG",
+        description="SinoWealth MCU Flash Programmer",
+    )
+    _ = parser.add_argument(
+        "-p", "--port",
+        default="/dev/ttyACM0",
+        help="Serial port (default: /dev/ttyACM0)",
+    )
+    _ = parser.add_argument(
+        "-b", "--baudrate",
+        type=int,
+        default=115200,
+        help="Baud rate (default: 115200)",
+    )
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Read command
+    read_parser = subparsers.add_parser("read", help="Read flash to file")
+    _ = read_parser.add_argument(
+        "-o", "--output",
+        required=True,
+        help="Output file path",
+    )
+    _ = read_parser.add_argument(
+        "-a", "--address",
+        type=_parse_int,
+        default=0,
+        help="Start address (default: 0)",
+    )
+    _ = read_parser.add_argument(
+        "-s", "--size",
+        type=_parse_int,
+        required=True,
+        help="Number of bytes to read",
+    )
+
+    # Erase command
+    erase_parser = subparsers.add_parser("erase", help="Erase flash blocks")
+    _ = erase_parser.add_argument(
+        "-a", "--address",
+        type=_parse_int,
+        default=0,
+        help="Start address (default: 0)",
+    )
+    _ = erase_parser.add_argument(
+        "-s", "--size",
+        type=_parse_int,
+        required=True,
+        help="Number of bytes to erase (rounds up to block boundary)",
+    )
+
+    # Flash/write command
+    flash_parser = subparsers.add_parser(
+        "flash",
+        aliases=["write"],
+        help="Program flash from file",
+    )
+    _ = flash_parser.add_argument(
+        "input",
+        help="Input file path",
+    )
+    _ = flash_parser.add_argument(
+        "-a", "--address",
+        type=_parse_int,
+        default=0,
+        help="Start address (default: 0)",
+    )
+    _ = flash_parser.add_argument(
+        "--no-erase",
+        action="store_true",
+        help="Skip erasing before write",
+    )
+    _ = flash_parser.add_argument(
+        "-v", "--verify",
+        action="store_true",
+        help="Verify after programming",
+    )
+
+    # Verify command
+    verify_parser = subparsers.add_parser("verify", help="Verify flash against file")
+    _ = verify_parser.add_argument(
+        "input",
+        help="File to verify against",
+    )
+    _ = verify_parser.add_argument(
+        "-a", "--address",
+        type=_parse_int,
+        default=0,
+        help="Start address (default: 0)",
+    )
+
+    ns = parser.parse_args()
+    command = cast(str, ns.command)
+
+    match command:
+        case "read":
+            return _cmd_read(_ReadArgs(
+                port=cast(str, ns.port),
+                baudrate=cast(int, ns.baudrate),
+                output=cast(str, ns.output),
+                address=cast(int, ns.address),
+                size=cast(int, ns.size),
+            ))
+        case "erase":
+            return _cmd_erase(_EraseArgs(
+                port=cast(str, ns.port),
+                baudrate=cast(int, ns.baudrate),
+                address=cast(int, ns.address),
+                size=cast(int, ns.size),
+            ))
+        case "flash" | "write":
+            return _cmd_flash(_FlashArgs(
+                port=cast(str, ns.port),
+                baudrate=cast(int, ns.baudrate),
+                input=cast(str, ns.input),
+                address=cast(int, ns.address),
+                no_erase=cast(bool, ns.no_erase),
+                verify=cast(bool, ns.verify),
+            ))
+        case "verify":
+            return _cmd_verify(_VerifyArgs(
+                port=cast(str, ns.port),
+                baudrate=cast(int, ns.baudrate),
+                input=cast(str, ns.input),
+                address=cast(int, ns.address),
+            ))
+        case _:
+            parser.print_help()
+            return 1
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
