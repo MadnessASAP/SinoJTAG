@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """SinoWealth Flash Programmer Interface
 
 Provides a file-like interface for reading, erasing, and writing
@@ -441,12 +442,14 @@ def main() -> int:
         description="SinoWealth MCU Flash Programmer",
     )
     _ = parser.add_argument(
-        "-p", "--port",
+        "-p",
+        "--port",
         default="/dev/ttyACM0",
         help="Serial port (default: /dev/ttyACM0)",
     )
     _ = parser.add_argument(
-        "-b", "--baudrate",
+        "-b",
+        "--baudrate",
         type=int,
         default=115200,
         help="Baud rate (default: 115200)",
@@ -457,18 +460,21 @@ def main() -> int:
     # Read command
     read_parser = subparsers.add_parser("read", help="Read flash to file")
     _ = read_parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         required=True,
         help="Output file path",
     )
     _ = read_parser.add_argument(
-        "-a", "--address",
+        "-a",
+        "--address",
         type=_parse_int,
         default=0,
         help="Start address (default: 0)",
     )
     _ = read_parser.add_argument(
-        "-s", "--size",
+        "-s",
+        "--size",
         type=_parse_int,
         required=True,
         help="Number of bytes to read",
@@ -477,13 +483,15 @@ def main() -> int:
     # Erase command
     erase_parser = subparsers.add_parser("erase", help="Erase flash blocks")
     _ = erase_parser.add_argument(
-        "-a", "--address",
+        "-a",
+        "--address",
         type=_parse_int,
         default=0,
         help="Start address (default: 0)",
     )
     _ = erase_parser.add_argument(
-        "-s", "--size",
+        "-s",
+        "--size",
         type=_parse_int,
         required=True,
         help="Number of bytes to erase (rounds up to block boundary)",
@@ -500,7 +508,8 @@ def main() -> int:
         help="Input file path",
     )
     _ = flash_parser.add_argument(
-        "-a", "--address",
+        "-a",
+        "--address",
         type=_parse_int,
         default=0,
         help="Start address (default: 0)",
@@ -511,7 +520,8 @@ def main() -> int:
         help="Skip erasing before write",
     )
     _ = flash_parser.add_argument(
-        "-v", "--verify",
+        "-v",
+        "--verify",
         action="store_true",
         help="Verify after programming",
     )
@@ -523,7 +533,8 @@ def main() -> int:
         help="File to verify against",
     )
     _ = verify_parser.add_argument(
-        "-a", "--address",
+        "-a",
+        "--address",
         type=_parse_int,
         default=0,
         help="Start address (default: 0)",
@@ -534,36 +545,44 @@ def main() -> int:
 
     match command:
         case "read":
-            return _cmd_read(_ReadArgs(
-                port=cast(str, ns.port),
-                baudrate=cast(int, ns.baudrate),
-                output=cast(str, ns.output),
-                address=cast(int, ns.address),
-                size=cast(int, ns.size),
-            ))
+            return _cmd_read(
+                _ReadArgs(
+                    port=cast(str, ns.port),
+                    baudrate=cast(int, ns.baudrate),
+                    output=cast(str, ns.output),
+                    address=cast(int, ns.address),
+                    size=cast(int, ns.size),
+                )
+            )
         case "erase":
-            return _cmd_erase(_EraseArgs(
-                port=cast(str, ns.port),
-                baudrate=cast(int, ns.baudrate),
-                address=cast(int, ns.address),
-                size=cast(int, ns.size),
-            ))
+            return _cmd_erase(
+                _EraseArgs(
+                    port=cast(str, ns.port),
+                    baudrate=cast(int, ns.baudrate),
+                    address=cast(int, ns.address),
+                    size=cast(int, ns.size),
+                )
+            )
         case "flash" | "write":
-            return _cmd_flash(_FlashArgs(
-                port=cast(str, ns.port),
-                baudrate=cast(int, ns.baudrate),
-                input=cast(str, ns.input),
-                address=cast(int, ns.address),
-                no_erase=cast(bool, ns.no_erase),
-                verify=cast(bool, ns.verify),
-            ))
+            return _cmd_flash(
+                _FlashArgs(
+                    port=cast(str, ns.port),
+                    baudrate=cast(int, ns.baudrate),
+                    input=cast(str, ns.input),
+                    address=cast(int, ns.address),
+                    no_erase=cast(bool, ns.no_erase),
+                    verify=cast(bool, ns.verify),
+                )
+            )
         case "verify":
-            return _cmd_verify(_VerifyArgs(
-                port=cast(str, ns.port),
-                baudrate=cast(int, ns.baudrate),
-                input=cast(str, ns.input),
-                address=cast(int, ns.address),
-            ))
+            return _cmd_verify(
+                _VerifyArgs(
+                    port=cast(str, ns.port),
+                    baudrate=cast(int, ns.baudrate),
+                    input=cast(str, ns.input),
+                    address=cast(int, ns.address),
+                )
+            )
         case _:
             parser.print_help()
             return 1
@@ -571,4 +590,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())
