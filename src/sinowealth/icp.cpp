@@ -100,7 +100,7 @@ void ICP::read_flash(uint16_t address, uint8_t* buffer, size_t size) {
   }
 }
 
-bool ICP::write_flash(uint16_t address, const uint8_t* buffer, uint16_t size) {
+bool ICP::write_flash(uint16_t address, const uint8_t* buffer, size_t size) {
   if (size == 0) {
     return false;
   }
@@ -116,7 +116,7 @@ bool ICP::write_flash(uint16_t address, const uint8_t* buffer, uint16_t size) {
   }
 
   // Remaining data bytes with inter-byte delay
-  for (uint16_t n = 1; n < size; ++n) {
+  for (size_t n = 1; n < size; ++n) {
     send_byte(buffer[n]);
     _delay_us(5);
     send_byte(0x00);
