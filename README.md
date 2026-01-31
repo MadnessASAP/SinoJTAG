@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ---
 
-Much of the SinoWealth specific information is heavily derived from (if not directly include code) from https://github.com/gashtaan/sinowealth-8051-dumper and https://github.com/gashtaan/sinowealth-8051-bl-updater. Their work has been indispensible.
+Much of the SinoWealth specific information is heavily derived from (if not directly includes code from) https://github.com/gashtaan/sinowealth-8051-dumper and https://github.com/gashtaan/sinowealth-8051-bl-updater. Their work has been indispensable.
 
 **Their code is licensed under GPLv3 and as a result this repo and any other derivatives are also.**
 
@@ -27,21 +27,75 @@ Much of the SinoWealth specific information is heavily derived from (if not dire
 
 ---
 
-SimpleJTAG is an AVR-native JTAG interface for the Arduino Uno R3 (ATmega328p). It is focused on SinoWealth 8051 MCUs and provides a layered design to support target-specific debug/ICP workflows for flash and RAM access. The implementation uses avr-libc only. The Arduino dependency is required to support SimpleRPC for providing a host interface.
+SinoJTAG is an AVR-native JTAG interface for the Arduino Uno R3 (ATmega328P), focused on SinoWealth 8051 MCUs. It provides a layered design for target-specific debug/ICP workflows including flash read, erase, and programming. The firmware uses avr-libc with direct register access; the Arduino core is only required to support SimpleRPC for the host interface.
 
-## Structure
+## Building
 
-- Stateless PHY: Direct GPIO control and bit-level JTAG primitives.
-- Stateful TAP: Tracks TAP state and provides IR/DR helpers.
-- Target layer: Target-specific operations (to be added).
+Requires [PlatformIO](https://platformio.org/).
 
-Key headers:
-- `lib/include/SimpleJTAG/phy.h`: Generic stateless interface to bit-bang GPIO.
-- `lib/include/SimpleJTAG/tap.h`: Generic TAP state tracker and helpers for reading/writing registers and common JTAG functions.
-- `lib/include/SimpleJTAG/config.h`: interface configurations, specific for Arduino UNO R3.
-- `include/sinowealth/*.h`: SinoWealth specific variants of generic interfaces.
-- `include/rpc.h`: Functions for SimpleRPC host interface.
+```bash
+pio run                # Build firmware
+pio run -t upload      # Build and upload to Arduino Uno
+pio run -t monitor     # Open serial monitor (115200 baud)
+```
+
+## Python CLI
+
+The `scripts/sinojtag` package provides a command-line interface for flash operations.
+
+```bash
+cd scripts
+python -m sinojtag --help
+
+# Read 8KB from flash
+python -m sinojtag read -o dump.bin -s 0x2000
+
+# Erase and program from Intel HEX or binary
+python -m sinojtag flash firmware.hex -v
+
+# Verify flash contents
+python -m sinojtag verify firmware.bin
+```
+
+The package can also be used as a library:
+
+```python
+from sinojtag import FlashIO
+
+with FlashIO("/dev/ttyACM0") as flash:
+    flash.seek(0)
+    data = flash.read(4096)
+```
+
+## Pin Mapping
+
+| Signal | AVR Pin | Arduino Pin |
+|--------|---------|-------------|
+| TCK    | PD5     | D5          |
+| TMS    | PD3     | D3          |
+| TDI    | PD4     | D4          |
+| TDO    | PD2     | D2          |
+| VREF   | PD6     | D6          |
+
+## Architecture
+
+### Firmware
+
+- **PHY Layer** (`lib/SimpleJTAG/include/SimpleJTAG/phy.h`) — Stateless GPIO bit-banging with direct AVR register manipulation. LSB-first bit streaming with ~500 kHz TCK.
+- **TAP Layer** (`lib/SimpleJTAG/include/SimpleJTAG/tap.h`) — Template class tracking JTAG TAP state machine. BFS-based optimal path finding for state transitions. IR/DR shift operations with arbitrary bit widths.
+- **SinoWealth Target** (`include/sinowealth/`) — Target-specific entry sequences and ICP operations built on the generic PHY/TAP layers.
+- **RPC Interface** (`include/rpc.h`) — SimpleRPC bindings exposing flash read/write/erase to the host.
+
+### Python Package
+
+```
+scripts/sinojtag/
+├── __init__.py    # Public API (FlashIO, FlashDevice)
+├── flash.py       # Device interface classes
+├── ihex.py        # Intel HEX format parsing
+└── __main__.py    # CLI entry point
+```
 
 ## Configuration
 
-- Set `Config` in `lib/include/SimpleJTAG/config.h` to actual AVR PORT/DDR/PIN mappings.
+Pin mappings and timing are configured in `lib/SimpleJTAG/include/SimpleJTAG/config.h`.
