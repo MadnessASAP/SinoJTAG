@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 namespace sinowealth {
 
@@ -45,7 +46,7 @@ class ICP {
   void set_address(uint16_t address);
 
   /** Read flash memory into buffer. */
-  void read_flash(uint16_t address, uint8_t* buffer, uint8_t size);
+  void read_flash(uint16_t address, uint8_t* buffer, size_t size);
 
   /** Write flash memory from buffer. Enters ICP mode internally. Does NOT reset. */
   bool write_flash(uint16_t address, const uint8_t* buffer, uint16_t size);

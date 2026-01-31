@@ -113,7 +113,7 @@ bool verify() {
   return _icp.verify();
 }
 
-Vector<uint8_t> read(uint16_t address, uint8_t size) {
+Vector<uint8_t> read(uint16_t address, size_t size) {
   if (_phy.mode() != sinowealth::Phy::Mode::READY) { _phy.reset(); }
   _phy.mode(sinowealth::Phy::Mode::ICP);
   _icp.init();

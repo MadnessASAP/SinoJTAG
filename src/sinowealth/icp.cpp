@@ -20,11 +20,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <stddef.h>
+#include <util/delay.h>
 #include <SimpleJTAG/phy.h>
 
 #include "sinowealth/phy.h"
 #include "sinowealth/icp.h"
-#include <util/delay.h>
 
 namespace {
   /** Flip the bits of a uint8_t */
@@ -89,12 +90,12 @@ void ICP::set_address(uint16_t address) {
   send_byte(static_cast<uint8_t>((address >> 8) & 0xFF));
 }
 
-void ICP::read_flash(uint16_t address, uint8_t* buffer, uint8_t size) {
+void ICP::read_flash(uint16_t address, uint8_t* buffer, size_t size) {
   set_address(address);
   // TODO: Support custom block
   send_byte(CommandSet::READ_FLASH);
 
-  for (uint8_t n = 0; n < size; ++n) {
+  for (size_t n = 0; n < size; ++n) {
     buffer[n] = receive_byte();
   }
 }
