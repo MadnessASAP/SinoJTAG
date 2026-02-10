@@ -115,18 +115,31 @@ struct Phy {
   /** Convenience wrapper for compile-time-sized shifts. */
   template <int N, bool EXIT, typename T>
   static inline T stream_bits(T out, T *in = nullptr) {
-    static_assert(N > 0 && N <= 32, "stream_bits N must be 1..32");
-    static_assert(sizeof(T) <= 4, "stream_bits T must be <= 32 bits");
+    static_assert(N > 0, "stream_bits N must be >= 1");
 
-    // unpack output and send out while capturing
-    const uint32_t capture =
-        stream_bits(static_cast<uint32_t>(out), N, EXIT, nullptr);
+    T capture = 0;
+    for (uint8_t i = 0; i < N; ++i) {
+      const bool is_last = (i + 1) == N;
+      write_port(config::tms::port, config::tms::index, EXIT && is_last);
+      write_port(config::tdi::port, config::tdi::index, (out & T(1)) != 0);
 
-    // pack input and return
-    if (in) {
-      *in = static_cast<T>(capture);
+      set_tck(false);
+      config::delay_half();
+      set_tck(true);
+      config::delay_half();
+
+      if (read_pin(config::tdo::pin, config::tdo::index)) {
+        capture |= (T(1) << i);
+      }
+
+      set_tck(false);
+      out >>= 1;
     }
-    return static_cast<T>(capture);
+
+    if (in) {
+      *in = capture;
+    }
+    return capture;
   }
 
   /** Configure GPIO direction bit. */

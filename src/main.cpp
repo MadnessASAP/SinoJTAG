@@ -20,9 +20,11 @@
 #include "rpc.h"
 #include "sinowealth/phy.h"
 #include "sinowealth/tap.h"
+#include "sinowealth/icp.h"
 
 auto _phy = sinowealth::Phy();
 auto _tap = sinowealth::Tap();
+auto _icp = sinowealth::ICP();
 
 void setup() {
   rpc::setup();

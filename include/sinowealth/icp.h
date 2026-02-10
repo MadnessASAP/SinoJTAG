@@ -64,6 +64,11 @@ class ICP {
     static constexpr uint8_t PING            = 0x49;
     static constexpr uint8_t READ_CUSTOM     = 0x4A;
     static constexpr uint8_t SET_XPAGE       = 0x4C;
+
+    static constexpr uint8_t PREAMBLE[]    = { 0x15, 0x0A, 0x09, 0x06 };
+    static constexpr uint8_t WRITE_UNLOCK  = 0x6E;
+    static constexpr uint8_t ERASE_UNLOCK  = 0xE6;
+    static constexpr uint8_t WRITE_TERM[]  = { 0x00, 0xAA, 0x00, 0x00 };
   };
 };
 

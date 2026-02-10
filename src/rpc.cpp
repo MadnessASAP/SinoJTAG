@@ -50,9 +50,9 @@ namespace phy {
 
 namespace tap {
 
-void init() {
+uint8_t init() {
   _phy.mode(sinowealth::Phy::Mode::JTAG);
-  _tap.init();
+  return static_cast<uint8_t>(_tap.init());
 }
 
 uint8_t state() {
@@ -87,6 +87,9 @@ uint32_t dr(uint32_t out, uint8_t bits) {
     case 23:
       _tap.DR<23, uint32_t>(out, &in);
       break;
+    case 30:
+      _tap.DR<30, uint32_t>(out, &in);
+      break;
     case 32:
       _tap.DR<32, uint32_t>(out, &in);
       break;
@@ -99,6 +102,8 @@ uint32_t dr(uint32_t out, uint8_t bits) {
 void bypass() { _tap.bypass(); }
 uint32_t idcode() { return _tap.idcode(); }
 void idle_clocks(uint8_t count) { _tap.idle_clocks(count); }
+uint8_t codescan_read(uint16_t address) { return _tap.codescan_read(address); }
+uint16_t read_idcode() { return _tap.read_idcode(); }
 
 }  // namespace tap
 
@@ -119,6 +124,7 @@ Vector<uint8_t> read(uint16_t address, size_t size) {
   _icp.init();
 
   uint8_t* buffer = static_cast<uint8_t*>(malloc(size));
+  if (!buffer) return Vector<uint8_t>(0, nullptr, false);
   _icp.read_flash(address, buffer, size);
   _phy.reset();
   return Vector(size, buffer, true);
@@ -160,7 +166,7 @@ void loop() {
       phy::stop,
         F("phy_stop: Sets JTAG ping to Hi-Z, will require target power cycle to use JTAG again."),
       tap::init,
-        F("tap_init: Initialize JTAG interface."),
+        F("tap_init: Initialize JTAG interface. @return: Status (0=OK)."),
       tap::state,
         F("tap_state: Get current TAP state. @return: State (0-15)."),
       tap::reset,
@@ -186,7 +192,11 @@ void loop() {
       icp::erase,
         F("icp_erase: Erase a sector of flash memory. @address: 16-bit address. @return: Okay"),
       icp::write,
-        F("icp_write: Write data to previously erase sector. @address: 16-bit address. @buffer: Data to write. @return: Okay")
+        F("icp_write: Write data to previously erase sector. @address: 16-bit address. @buffer: Data to write. @return: Okay"),
+      tap::codescan_read,
+        F("tap_codescan_read: Read flash byte via CODESCAN. @address: 16-bit address. @return: Data byte."),
+      tap::read_idcode,
+        F("tap_read_idcode: Read 16-bit IDCODE. @return: 16-bit ID.")
   );
 }
 

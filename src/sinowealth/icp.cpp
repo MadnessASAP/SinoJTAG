@@ -110,8 +110,8 @@ bool ICP::write_flash(uint16_t address, const uint8_t* buffer, size_t size) {
   send_byte(buffer[0]);
 
   // Write unlock sequence
-  constexpr uint8_t unlock[] = { 0x6E, 0x15, 0x0A, 0x09, 0x06 };
-  for (auto b : unlock) {
+  send_byte(CommandSet::WRITE_UNLOCK);
+  for (auto b : CommandSet::PREAMBLE) {
     send_byte(b);
   }
 
@@ -123,10 +123,9 @@ bool ICP::write_flash(uint16_t address, const uint8_t* buffer, size_t size) {
   }
 
   // Write termination sequence
-  send_byte(0x00);
-  send_byte(0xAA);
-  send_byte(0x00);
-  send_byte(0x00);
+  for (auto b : CommandSet::WRITE_TERM) {
+    send_byte(b);
+  }
   _delay_us(5);
 
   return true;
@@ -139,8 +138,8 @@ bool ICP::erase_flash(uint16_t address) {
   send_byte(0x00);
 
   // Erase unlock sequence
-  constexpr uint8_t unlock[] = { 0xE6, 0x15, 0x0A, 0x09, 0x06 };
-  for (auto b : unlock) {
+  send_byte(CommandSet::ERASE_UNLOCK);
+  for (auto b : CommandSet::PREAMBLE) {
     send_byte(b);
   }
 
@@ -153,4 +152,4 @@ bool ICP::erase_flash(uint16_t address) {
   return status;
 }
 
-}  // namespace icp
+}  // namespace sinowealth

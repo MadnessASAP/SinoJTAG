@@ -116,8 +116,7 @@ class Tap {
 
 template <int bits, typename T>
 void Tap::DR(T out, T* in) {
-  static_assert(bits > 0 && bits <= 32, "DR bits must be 1..32");
-  static_assert(sizeof(T) <= 4, "DR type must be <= 32 bits");
+  static_assert(bits > 0, "DR bits must be >= 1");
 
   goto_state(State::ShiftDR);
   Phy::stream_bits<bits, true>(out, in);
@@ -128,8 +127,6 @@ void Tap::DR(T out, T* in) {
 
 template <typename T>
 void Tap::IR(T out, T* in) {
-  static_assert(sizeof(T) <= 4, "IR type must be <= 32 bits");
-
   goto_state(State::ShiftIR);
   Phy::stream_bits<config::IR_BITS, true>(out, in);
 
