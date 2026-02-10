@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 #include <SimpleJTAG/tap.h>
 
@@ -39,26 +40,6 @@ namespace detail {
     }
 }
 
-// --- DEBUG register (IR=0x02, 4-bit DR) ---
-
-struct DebugDR {
-    uint8_t command = 0;
-    static constexpr uint8_t HALT   = 0x01;
-    static constexpr uint8_t ENABLE = 0x04;
-    constexpr operator uint8_t() const { return command; }
-};
-
-// --- CONFIG write register (IR=0x03, 23-bit DR) ---
-// Layout: [15:0]=data, [22:16]=address, all LSB-first
-
-struct ConfigDR {
-    uint16_t data = 0;
-    uint8_t address = 0;
-    constexpr operator uint32_t() const {
-        return (static_cast<uint32_t>(address) << 16) | data;
-    }
-};
-
 namespace ConfigAddr {
     static constexpr uint8_t STATUS_TRIGGER = 0x00;
     static constexpr uint8_t DEBUG_CTRL     = 0x40;
@@ -78,41 +59,6 @@ namespace DebugCtrlData {
     static constexpr uint16_t CLEAR         = 0x0000;
 }
 
-// --- CONFIG read register (64-bit DR readback) ---
-// Irregular bit layout from decompilation
-
-struct ConfigReadDR {
-    uint8_t status;       // 4-bit: bits 0,1,10,11 of raw
-    uint8_t data;         // 8-bit: bits 2-9 of raw
-    uint8_t response[6];  // 48-bit: bits 16-63 of raw
-
-    bool op_complete() const { return status & 0x01; }
-    bool wait_extend() const { return status & 0x08; }
-
-    static ConfigReadDR from_raw(uint64_t raw);
-};
-
-// --- CODESCAN register (IR=0x00, 30-bit DR) ---
-// Fields are MSB-first: [15:0]=addr, [21:16]=ctrl, [29:22]=data
-
-struct CodescanDR {
-    uint16_t address = 0;
-    uint8_t ctrl = 0;
-    uint8_t data = 0;
-
-    static constexpr uint8_t READ = 0x04;
-
-    constexpr operator uint32_t() const {
-        uint32_t packed = 0;
-        packed |= static_cast<uint32_t>(detail::bit_reverse_16(address));
-        packed |= static_cast<uint32_t>(detail::bit_reverse_8(ctrl) >> 2) << 16;
-        packed |= static_cast<uint32_t>(detail::bit_reverse_8(data)) << 22;
-        return packed;
-    }
-
-    static CodescanDR from_raw(uint32_t raw);
-};
-
 // --- Status enum ---
 
 enum class Status : uint8_t {
@@ -127,11 +73,70 @@ class Tap : public SimpleJTAG::Tap {
  public:
   Status init();
 
-  void config_write(uint8_t addr, uint16_t data);
-  ConfigReadDR config_read_status();
-  uint8_t codescan_read(uint16_t address);
-  void opcode_inject(uint8_t opcode);
-  uint16_t read_idcode();
+  // --- DEBUG register (IR=0x02, 4-bit DR) ---
+  class DEBUG {
+    SimpleJTAG::Tap& tap_;
+   public:
+    DEBUG(SimpleJTAG::Tap& tap) : tap_(tap) {}
+    static constexpr uint8_t HALT   = 0x01;
+    static constexpr uint8_t ENABLE = 0x04;
+    uint8_t operator()(uint8_t command);
+  } DEBUG{*this};
+
+  // --- CONFIG register (IR=0x03, 64-bit DR) ---
+  class CONFIG {
+    SimpleJTAG::Tap& tap_;
+   public:
+    CONFIG(SimpleJTAG::Tap& tap) : tap_(tap) {}
+    struct __attribute__((packed)) write_t {
+      uint8_t address : 7;
+      uint16_t data : 16;
+      uint64_t : (64 - 23);
+    };
+
+    struct __attribute__((packed)) read_t {
+      uint8_t status : 4;
+      uint8_t data : 8;
+      uint64_t responses : 48;
+
+      bool op_complete() const { return status & 0x01; }
+      bool wait_extend() const { return status & 0x08; }
+      uint8_t response(size_t index) const {
+        return static_cast<uint8_t>((responses >> (index * 8)));
+      }
+    };
+    uint64_t operator()(uint64_t data);
+    read_t operator()(write_t data);
+    read_t operator()(uint8_t addr = 0, uint16_t data = 0);
+  } CONFIG{*this};
+
+  // --- CODESCAN register (IR=0x00, 30-bit DR) ---
+  // Fields are MSB-first: [15:0]=addr, [21:16]=ctrl, [29:22]=data
+  class CODESCAN {
+    SimpleJTAG::Tap& tap_;
+   public:
+    CODESCAN(SimpleJTAG::Tap& tap) : tap_(tap) {}
+    struct __attribute__((packed)) fields_t {
+      uint16_t address : 16;
+      uint8_t ctrl : 6;
+      uint8_t data : 8;
+    };
+    static constexpr uint8_t READ = 0x04;
+    uint32_t operator()(uint32_t data);
+    fields_t operator()(fields_t data);
+    fields_t operator()(uint16_t address, uint8_t ctrl = READ);
+  } CODESCAN{*this};
+
+  // --- HALT register (IR=0x0C) ---
+  class HALT {
+    SimpleJTAG::Tap& tap_;
+   public:
+    HALT(SimpleJTAG::Tap& tap) : tap_(tap) {}
+    void operator()();
+    void operator()(uint8_t opcode);
+  } HALT{*this};
+
+  uint16_t IDCODE();
 
   void exit();
 

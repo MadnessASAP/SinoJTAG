@@ -26,33 +26,78 @@ namespace sinowealth {
 using detail::bit_reverse_8;
 using detail::bit_reverse_16;
 
-// --- ConfigReadDR ---
+// --- CONFIG ---
 
-ConfigReadDR ConfigReadDR::from_raw(uint64_t raw) {
-    ConfigReadDR r{};
-    // status: bits 0,1 are low pair; bits 10,11 are high pair
-    r.status = static_cast<uint8_t>(
-        ((raw >> 0) & 0x03) | (((raw >> 10) & 0x03) << 2)
-    );
-    // data: bits 2-9
-    r.data = static_cast<uint8_t>((raw >> 2) & 0xFF);
-    // response: bits 16-63 (48 bits, 6 bytes)
-    uint64_t resp = raw >> 16;
-    for (uint8_t i = 0; i < 6; ++i) {
-        r.response[i] = static_cast<uint8_t>(resp & 0xFF);
-        resp >>= 8;
-    }
-    return r;
+uint64_t Tap::CONFIG::operator()(uint64_t data) {
+    tap_.IR(uint8_t(0x03));
+    uint64_t raw = 0;
+    tap_.DR<64, uint64_t>(data, &raw);
+    return raw;
 }
 
-// --- CodescanDR ---
+Tap::CONFIG::read_t Tap::CONFIG::operator()(write_t w) {
+    uint64_t out = (static_cast<uint64_t>(w.address) << 16 | w.data) << (64 - 23);
+    uint64_t raw = (*this)(out);
+    tap_.idle_clocks(1);
 
-CodescanDR CodescanDR::from_raw(uint32_t raw) {
-    CodescanDR r{};
-    r.address = bit_reverse_16(static_cast<uint16_t>(raw & 0xFFFF));
-    r.ctrl = static_cast<uint8_t>(bit_reverse_8(static_cast<uint8_t>((raw >> 16) & 0x3F) << 2));
-    r.data = bit_reverse_8(static_cast<uint8_t>((raw >> 22) & 0xFF));
-    return r;
+    read_t result{};
+    result.status = raw & 0x0F;
+    result.data = (raw >> 4) & 0xFF;
+    result.responses = raw >> 12;
+    return result;
+}
+
+Tap::CONFIG::read_t Tap::CONFIG::operator()(uint8_t addr, uint16_t data) {
+    return (*this)(write_t{addr, data});
+}
+
+// --- DEBUG ---
+
+uint8_t Tap::DEBUG::operator()(uint8_t command) {
+    tap_.IR(uint8_t(0x02));
+    uint8_t captured = 0;
+    tap_.DR<4, uint8_t>(command, &captured);
+    tap_.idle_clocks(1);
+    return captured;
+}
+
+// --- CODESCAN ---
+
+uint32_t Tap::CODESCAN::operator()(uint32_t data) {
+    tap_.IR(uint8_t(0x00));
+    uint32_t raw = 0;
+    tap_.DR<30, uint32_t>(data, &raw);
+    return raw;
+}
+
+Tap::CODESCAN::fields_t Tap::CODESCAN::operator()(fields_t f) {
+    uint32_t out = 0;
+    out |= static_cast<uint32_t>(bit_reverse_16(f.address));
+    out |= static_cast<uint32_t>(bit_reverse_8(f.ctrl) >> 2) << 16;
+    out |= static_cast<uint32_t>(bit_reverse_8(f.data)) << 22;
+
+    uint32_t raw = (*this)(out);
+
+    fields_t result{};
+    result.address = bit_reverse_16(static_cast<uint16_t>(raw & 0xFFFF));
+    result.ctrl = bit_reverse_8(static_cast<uint8_t>((raw >> 16) & 0x3F) << 2);
+    result.data = bit_reverse_8(static_cast<uint8_t>((raw >> 22) & 0xFF));
+    return result;
+}
+
+Tap::CODESCAN::fields_t Tap::CODESCAN::operator()(uint16_t address, uint8_t ctrl) {
+    return (*this)(fields_t{address, ctrl, 0});
+}
+
+// --- HALT ---
+
+void Tap::HALT::operator()() {
+    tap_.IR(uint8_t(0x0C));
+}
+
+void Tap::HALT::operator()(uint8_t opcode) {
+    tap_.IR(uint8_t(0x0C));
+    tap_.DR<8>(bit_reverse_8(opcode));
 }
 
 // --- Tap methods ---
@@ -62,22 +107,18 @@ Status Tap::init() {
     idle_clocks(2);
 
     // Step 1: Enable debug interface, unlock CONFIG register access
-    IR(InstructionSet::DEBUG);
-    DR<4>(static_cast<uint8_t>(DebugDR::ENABLE));
-    idle_clocks(1);
+    DEBUG(DEBUG.ENABLE);
 
     // Step 2: CONFIG register initialization
-    IR(InstructionSet::CONFIG);
-
     // 2a: Enable debug/flash subsystem (needs ~50us settling)
-    config_write(ConfigAddr::DEBUG_CTRL, DebugCtrlData::SUBSYS_ENABLE);
+    CONFIG(ConfigAddr::DEBUG_CTRL, DebugCtrlData::SUBSYS_ENABLE);
     _delay_us(50);
 
     // 2b: Full debug enable; arms flash erase capability
-    config_write(ConfigAddr::DEBUG_CTRL, DebugCtrlData::DBGEN_FULL);
+    CONFIG(ConfigAddr::DEBUG_CTRL, DebugCtrlData::DBGEN_FULL);
 
     // 2c: Clear DEBUG_CTRL register
-    config_write(ConfigAddr::DEBUG_CTRL, DebugCtrlData::CLEAR);
+    CONFIG(ConfigAddr::DEBUG_CTRL, DebugCtrlData::CLEAR);
 
     // Step 3: Clear target SFRs to known state
     // These map to SFRs at (addr + 0x80):
@@ -88,24 +129,22 @@ Status Tap::init() {
         0x73, 0x77, 0x7B, 0x7F,
     };
     for (uint8_t i = 0; i < sizeof(sfr_addrs); ++i) {
-        config_write(sfr_addrs[i], 0x0000);
+        CONFIG(sfr_addrs[i], 0x0000);
     }
 
     // Step 4: Halt CPU
-    IR(InstructionSet::DEBUG);
-    DR<4>(static_cast<uint8_t>(DebugDR::HALT));
-    idle_clocks(1);
-    IR(InstructionSet::HALT);
+    DEBUG(DEBUG.HALT);
+    HALT();
 
     // Step 5: Enable flash debug access
     // Inject 8051 opcode: MOV 0xFF, #0x80 (opcode 0x75, addr 0xFF, imm 0x80)
     // SFR 0xFF bit 7 gates the flash debug interface
-    opcode_inject(0x75);
-    opcode_inject(0xFF);
-    opcode_inject(0x80);
+    HALT(0x75);
+    HALT(0xFF);
+    HALT(0x80);
 
     // Step 6: Verify IDCODE
-    uint16_t id = read_idcode();
+    uint16_t id = IDCODE();
     if (id == 0x0000 || id == 0xFFFF) {
         return Status::ERR_IDCODE;
     }
@@ -117,38 +156,9 @@ void Tap::exit() {
     reset();
 }
 
-void Tap::config_write(uint8_t addr, uint16_t data) {
-    DR<23>(static_cast<uint32_t>(ConfigDR{.data = data, .address = addr}));
-    idle_clocks(1);
-}
-
-ConfigReadDR Tap::config_read_status() {
-    // Arm readback by writing 0x0000 to STATUS_TRIGGER
-    config_write(ConfigAddr::STATUS_TRIGGER, StatusTriggerData::CLEAR);
-    // Read 64-bit status
-    uint64_t raw = 0;
-    DR<64, uint64_t>(uint64_t(0), &raw);
-    return ConfigReadDR::from_raw(raw);
-}
-
-uint8_t Tap::codescan_read(uint16_t address) {
-    IR(InstructionSet::CODESCAN);
-    CodescanDR cmd{.address = address, .ctrl = CodescanDR::READ};
-    uint32_t raw = 0;
-    DR<30, uint32_t>(static_cast<uint32_t>(cmd), &raw);
-    CodescanDR result = CodescanDR::from_raw(raw);
-    return result.data;
-}
-
-void Tap::opcode_inject(uint8_t opcode) {
-    // Must be in HALT state (IR=HALT already selected)
-    // 8-bit partial scan into [29:22] of the 30-bit HALT register
-    DR<8>(bit_reverse_8(opcode));
-}
-
-uint16_t Tap::read_idcode() {
-    uint16_t id = 0;
+uint16_t Tap::IDCODE() {
     IR(InstructionSet::IDCODE);
+    uint16_t id = 0;
     DR<16, uint16_t>(0, &id);
     return id;
 }

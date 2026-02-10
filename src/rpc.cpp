@@ -102,8 +102,8 @@ uint32_t dr(uint32_t out, uint8_t bits) {
 void bypass() { _tap.bypass(); }
 uint32_t idcode() { return _tap.idcode(); }
 void idle_clocks(uint8_t count) { _tap.idle_clocks(count); }
-uint8_t codescan_read(uint16_t address) { return _tap.codescan_read(address); }
-uint16_t read_idcode() { return _tap.read_idcode(); }
+uint8_t codescan_read(uint16_t address) { return _tap.CODESCAN(address).data; }
+uint16_t read_idcode() { return _tap.IDCODE(); }
 
 }  // namespace tap
 
